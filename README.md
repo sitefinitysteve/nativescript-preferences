@@ -1,10 +1,10 @@
-# Your Plugin Name
+# nativescript-preferences
 
-Add your plugin badges here. See [nativescript-urlhandler](https://github.com/hypery2k/nativescript-urlhandler) for example.
+This plugin allows native preference saving\loading on iOS and Android
 
-Then describe what's the purpose of your plugin. 
+![alt text](/images/ios-sample.png =250x "iOS Sample")
 
-In case you develop UI plugin, this is where you can add some screenshots.
+<img src="/images/ios-sample.png" alt="Drawing" style="width: 200px;"/>
 
 ## (Optional) Prerequisites / Requirements
 
@@ -15,7 +15,7 @@ Describe the prerequisites that the user need to have installed before using you
 Describe your plugin installation steps. Ideally it would be something like:
 
 ```javascript
-tns plugin add <your-plugin-name>
+tns plugin add nativescript-preferences
 ```
 
 ## Usage 
