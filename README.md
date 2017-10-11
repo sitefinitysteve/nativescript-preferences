@@ -2,9 +2,7 @@
 
 This plugin allows native preference saving\loading on iOS and Android
 
-![alt text](/images/ios-sample.png =250x "iOS Sample")
-
-<img src="/images/ios-sample.png" alt="Drawing" style="width: 200px;"/>
+<img src="/images/ios-sample.png" alt="iOS Sample" style="max-width: 200px;"/>
 
 ## (Optional) Prerequisites / Requirements
 
