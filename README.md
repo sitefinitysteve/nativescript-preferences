@@ -20,7 +20,7 @@ tns plugin add nativescript-preferences
 ## Usage 
 
 	```javascript
-    var prefs = new Preferences();
+    var prefs = new Preferences();cd
 
     //Get existing value
     prefs.getValue("name_preference");
