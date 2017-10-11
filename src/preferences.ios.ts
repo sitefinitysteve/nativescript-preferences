@@ -22,7 +22,7 @@ export class Preferences extends Common {
     }
 
     //https://stackoverflow.com/questions/6291477/how-to-retrieve-values-from-settings-bundle-in-objective-c
-    public registerDefaultsFromSettingsBundle() {
+    private registerDefaultsFromSettingsBundle() {
         var settingsPath = NSBundle.mainBundle.pathForResourceOfType("Settings", "bundle");
         let settingsBundle: NSString = NSString.stringWithString(settingsPath);
         let rootPath = settingsBundle.stringByAppendingPathComponent("Root.plist");

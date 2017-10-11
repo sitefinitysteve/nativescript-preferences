@@ -18,11 +18,15 @@ tns plugin add nativescript-preferences
 
 ## Usage 
 
-Describe any usage specifics for your plugin. Give examples for Android, iOS, Angular if needed. See [nativescript-drop-down](https://www.npmjs.com/package/nativescript-drop-down) for example.
-	
 	```javascript
-    Usage code snippets here
-    ```)
+    var prefs = new Preferences();
+
+    //Get existing value
+    prefs.getValue("name_preference");
+
+    //Set value
+    prefs.setValue("name_preference", "some new text");
+    ```
 
 ## API
 
@@ -30,8 +34,8 @@ Describe your plugin methods and properties here. See [nativescript-feedback](ht
     
 | Property | Default | Description |
 | --- | --- | --- |
-| some property | property default value | property description, default values, etc.. |
-| another property | property default value | property description, default values, etc.. |
+| getValue(key: string): any; |  | Gets the value for the preference |
+| setValue(key: string, value: any): void; |  | Sets the passed value to the preference |
     
 ## License
 
