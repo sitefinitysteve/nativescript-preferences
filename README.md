@@ -4,9 +4,10 @@ This plugin allows native preference saving\loading on iOS and Android
 
 <img src="/images/ios-sample.png" alt="iOS Sample" style="max-width: 200px;"/>
 
-## (Optional) Prerequisites / Requirements
+## Prerequisites / Requirements
 
-Describe the prerequisites that the user need to have installed before using your plugin. See [nativescript-firebase plugin](https://github.com/eddyverbruggen/nativescript-plugin-firebase) for example.
+* Create iOS Settings.bundle files in App_Resources/iOS [See Demo](https://github.com/sitefinitysteve/nativescript-preferences/tree/master/demo/app/App_Resources/iOS/Settings.bundle)
+or [Apple Developer docs](https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/UserDefaults/Preferences/Preferences.html)
 
 ## Installation
 
