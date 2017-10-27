@@ -1,13 +1,18 @@
-<Page xmlns="http://schemas.nativescript.org/tns.xsd" loaded="pageLoaded" class="page"
-  xmlns:ui="nativescript-preferences">
-  <StackLayout class="p-20">
-    <TextField id="propertyName" hint="Property Name" text="{{ preferenceKey }}" />
-    <Label text="{{ message }}" class="t-20 text-center c-black" textWrap="true"/>
-    <Button text="Get Value" tap="onGetValue" />
-    <TextField id="setText" hint="New Value" />
-    <Button text="Set Value" tap="onSetValue" />
-    <ios>
-      <Button text="Open Settings" tap="onOpeniOSSettings" />
-    </ios>
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" loaded="pageLoaded" class="page" xmlns:ui="nativescript-preferences">
+  <Page.actionBar>
+    <ActionBar class="action-bar" title="My App">
+    </ActionBar>
+  </Page.actionBar>
+
+  <StackLayout>
+    <Button class="btn btn-primary" text="Open Settings" tap="onOpeniOSSettings" />
+    <StackLayout class="hr-light"></StackLayout>
+    <StackLayout class="p-20">
+      <TextField id="propertyName" hint="Property Name" text="{{ preferenceKey }}" />
+      <Label text="{{ message }}" class="t-20 text-center c-black" textWrap="true"/>
+      <Button class="btn btn-primary" text="Get Value" tap="onGetValue" />
+      <TextField id="setText" hint="New Value" />
+      <Button class="btn btn-primary" text="Set Value" tap="onSetValue" />
+    </StackLayout>
   </StackLayout>
 </Page>

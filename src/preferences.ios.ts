@@ -42,20 +42,5 @@ export class Preferences extends Common {
 
         NSUserDefaults.standardUserDefaults.registerDefaults(defaultsToRegister as any);
         NSUserDefaults.standardUserDefaults.synchronize();
-        
-        /*
-    
-
-        NSMutableDictionary * defaultsToRegister = [[NSMutableDictionary alloc] initWithCapacity:[preferences count]];
-        for (NSDictionary * prefSpecification in preferences) {
-            NSString * key = [prefSpecification objectForKey:@"Key"];
-            if (key) {
-                [defaultsToRegister setObject:[prefSpecification objectForKey:@"DefaultValue"]forKey: key];
-                NSLog(@"writing as default %@ to the key %@", [prefSpecification objectForKey:@"DefaultValue"],key);
-            }
-        }
-
-        [[NSUserDefaults standardUserDefaults] registerDefaults:defaultsToRegister];
-*/
-        }
+    }
 }

@@ -16,6 +16,7 @@ seed-tests/seed-copy-new-git-repo/**/*.*
 demo/*.d.ts
 !demo/references.d.ts
 demo/lib
+demo/typings
 demo/platforms
 node_modules
 publish/src
