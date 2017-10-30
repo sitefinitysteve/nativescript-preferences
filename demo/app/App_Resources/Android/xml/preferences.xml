@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <SwitchPreference
-        android:key="enabled_preference"
-        android:title="Enabled"
-        android:summary="Blah blah"
-        android:defaultValue="true" />
+    <PreferenceCategory android:title="Grouping">
+        <EditTextPreference
+            android:key="name_preference"
+            android:title="Name"
+            android:defaultValue="" />
+        <SwitchPreference
+            android:key="enabled_preference"
+            android:title="Enabled"
+            android:summary="Blah blah"
+            android:defaultValue="false" />
+    </PreferenceCategory>
 </PreferenceScreen>

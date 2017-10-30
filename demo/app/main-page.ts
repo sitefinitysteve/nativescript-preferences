@@ -28,3 +28,7 @@ exports.onSetValue = function (args: observable.EventData) {
     prefs.setValue(page.bindingContext.get("preferenceKey"), textBox.text);
     page.bindingContext.set("message", prefs.getValue(page.bindingContext.get("preferenceKey")));
 }
+
+exports.onDebug = function (args: observable.EventData) {
+    debugger;
+}

@@ -8,6 +8,18 @@ export class Common extends Observable {
     super();
     
   }
+
+  public setValue(key: string, value: any) {
+    //Implimented in platform file
+  }
+
+  public getValue(key: string): any {
+    //Implimented in platform file
+  }
+
+  public openSettings() {
+    //Implimented in platform file
+  }
 }
 
 export class Utils {

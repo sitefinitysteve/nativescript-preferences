@@ -13,6 +13,7 @@
       <Button class="btn btn-primary" text="Get Value" tap="onGetValue" />
       <TextField id="setText" hint="New Value" />
       <Button class="btn btn-primary" text="Set Value" tap="onSetValue" />
+      <Button class="btn btn-default" text="Debug" tap="onDebug" />
     </StackLayout>
   </StackLayout>
 </Page>

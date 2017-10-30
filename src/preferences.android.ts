@@ -6,14 +6,34 @@ import { SettingsFragment } from './settingsfragment'
 declare var com;
 
 export class Preferences extends Common {
-    private _prefsKey: string = "SettingsBundle";
-
     public setValue(key: string, value: any) {
-        this.getPreferences().edit().putString(key, value).commit();
+        var allPrefs = this.getPreferences().getAll();
+        var pref = allPrefs.get(key);
+
+        if (pref instanceof java.lang.String) {
+            this.getPreferences().edit().putString(key, value).commit();
+        } else if (pref instanceof java.lang.Boolean) {
+            this.getPreferences().edit().putBoolean(key, value).commit();
+        }
     }
 
-    public getValue(key: string): any {
-        return this.getPreferences().getString(key, "");
+    public getValue(key: string, defaultValue?: any): any {
+        debugger;
+        var allPrefs = this.getPreferences().getAll();
+        var pref = allPrefs.get(key);
+        
+        if (pref instanceof java.lang.Boolean) {
+            if (!defaultValue)
+                defaultValue = false;
+            
+            return this.getPreferences().getBoolean(key, defaultValue);
+        } else {
+            //Fallback to assuming string, because ¯\_(ツ)_/¯
+            if (!defaultValue)
+                defaultValue = "";
+
+            return this.getPreferences().getString(key, defaultValue);
+        }
     }
 
     public openSettings() {
@@ -26,7 +46,15 @@ export class Preferences extends Common {
 
 
     private getPreferences(): any {
-        return app.android.context.getSharedPreferences(this._prefsKey, 0);
+        var context = getContext();
+        return android.preference.PreferenceManager.getDefaultSharedPreferences(context)
     }
 }
 
+//Thx @NathanaelA
+function getContext() {
+    var ctx = java.lang.Class.forName("android.app.AppGlobals").getMethod("getInitialApplication", null).invoke(null, null);
+    if (ctx) { return ctx; }
+
+    return java.lang.Class.forName("android.app.ActivityThread").getMethod("currentApplication", null).invoke(null, null);
+}
