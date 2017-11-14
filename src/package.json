@@ -1,6 +1,6 @@
 {
     "name": "nativescript-preferences",
-    "version": "1.0.1",
+    "version": "1.0.5",
     "description": "Common API to allow users to use native (familiar) app settings screens instead of having to craft custom UIs",
     "main": "preferences",
     "typings": "index.d.ts",
@@ -11,6 +11,7 @@
         }
     },
     "scripts": {
+        "publish.live": "cp ../README.md ../src && npm publish",
         "tsc": "tsc -skipLibCheck",
         "build": "npm i && tsc",
         "postclone": "npm i && node scripts/postclone.js && cd ../demo && npm i && cd ../src && npm run plugin.link",
