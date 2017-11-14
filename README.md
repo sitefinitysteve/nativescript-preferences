@@ -8,8 +8,8 @@
 
 This plugin allows native preference saving\loading on iOS and Android
 
-<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/src/images/ios-sample.gif" width="200" />
-<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/src/images/android-sample.gif" width="200" />
+<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-sample.gif" width="200" />
+<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-sample.gif" width="200" />
 
 ## iOS Prerequisites
 
