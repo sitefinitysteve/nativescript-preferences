@@ -11,10 +11,14 @@ This plugin allows native preference saving\loading on iOS and Android
 ![](/src/images/ios-sample.gif)
 ![](/src/images/android-sample.gif)
 
-## Prerequisites / Requirements
+## iOS Prerequisites
 
 * Create iOS Settings.bundle files in App_Resources/iOS [See Demo](https://github.com/sitefinitysteve/nativescript-preferences/tree/master/demo/app/App_Resources/iOS/Settings.bundle)
 or [Apple Developer docs](https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/UserDefaults/Preferences/Preferences.html)
+
+## Android Prerequisites
+* In App_Resources/Android/xml create [preferences.xml](https://github.com/sitefinitysteve/nativescript-preferences/blob/master/demo/app/App_Resources/Android/xml/preferences.xml)
+* Android [PreferenceScreen docs](https://developer.android.com/reference/android/preference/PreferenceScreen.html)
 
 ## Installation
 
@@ -26,7 +30,7 @@ tns plugin add nativescript-preferences
 
 ## Usage 
 
-	```javascript
+```javascript
     var prefs = new Preferences();
 
     //Get existing value
@@ -34,11 +38,9 @@ tns plugin add nativescript-preferences
 
     //Set value
     prefs.setValue("name_preference", "some new text");
-    ```
+```
 
 ## API
-
-Describe your plugin methods and properties here. See [nativescript-feedback](https://github.com/EddyVerbruggen/nativescript-feedback) for example.
     
 | Property | Default | Description |
 | --- | --- | --- |
