@@ -1,6 +1,6 @@
 {
     "name": "nativescript-preferences",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "description": "Common API to allow users to use native (familiar) app settings screens instead of having to craft custom UIs",
     "main": "preferences",
     "typings": "index.d.ts",
