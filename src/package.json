@@ -1,7 +1,7 @@
 {
     "name": "nativescript-preferences",
     "version": "1.0.1",
-    "description": "Your awesome NativeScript plugin.",
+    "description": "Common API to allow users to use native (familiar) app settings screens instead of having to craft custom UIs",
     "main": "preferences",
     "typings": "index.d.ts",
     "nativescript": {
@@ -30,13 +30,17 @@
     },
     "keywords": [
         "NativeScript",
+        "Preferences",
+        "Settings",
+        "PreferenceScreen",
         "JavaScript",
         "Android",
         "iOS"
     ],
     "author": {
-        "name": "Your Name",
-        "email": "youremail@yourdomain.com"
+        "name": "Steve McNiven-Scott",
+        "email": "steve@sitefinitysteve.com",
+        "url": "https://github.com/sitefinitysteve"
     },
     "bugs": {
         "url": "https://github.com/sitefinitysteve/nativescript-preferences/issues"

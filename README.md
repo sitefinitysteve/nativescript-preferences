@@ -3,6 +3,7 @@
 This plugin allows native preference saving\loading on iOS and Android
 
 <img src="/images/ios-sample.png" alt="iOS Sample" style="max-width: 200px;"/>
+<img src="/images/android-sample.png" alt="iOS Sample" style="max-width: 200px;"/>
 
 ## Prerequisites / Requirements
 
@@ -20,7 +21,7 @@ tns plugin add nativescript-preferences
 ## Usage 
 
 	```javascript
-    var prefs = new Preferences();cd
+    var prefs = new Preferences();
 
     //Get existing value
     prefs.getValue("name_preference");
@@ -35,6 +36,7 @@ Describe your plugin methods and properties here. See [nativescript-feedback](ht
     
 | Property | Default | Description |
 | --- | --- | --- |
+| openSettings(): any; |  | Opens the native settings panes |
 | getValue(key: string): any; |  | Gets the value for the preference |
 | setValue(key: string, value: any): void; |  | Sets the passed value to the preference |
     
