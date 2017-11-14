@@ -3,21 +3,25 @@ import * as app from 'tns-core-modules/application';
 import * as dialogs from 'tns-core-modules/ui/dialogs';
 
 export class Common extends Observable {
-  
+
   constructor() {
     super();
-    
+
   }
 
   public setValue(key: string, value: any) {
     //Implimented in platform file
   }
 
-  public getValue(key: string): any {
+  public getValue(key: string, defaultValue?: any): any {
     //Implimented in platform file
   }
 
   public openSettings() {
+    //Implimented in platform file
+  }
+
+  public clear() {
     //Implimented in platform file
   }
 }

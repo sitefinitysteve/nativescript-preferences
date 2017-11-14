@@ -1,7 +1,6 @@
 import * as app from 'tns-core-modules/application/application';
 import * as frameModule from 'tns-core-modules/ui/frame/frame';
 import { Common } from './preferences.common';
-import { SettingsFragment } from './settingsfragment'
 
 declare var com;
 
@@ -10,30 +9,49 @@ export class Preferences extends Common {
         var allPrefs = this.getPreferences().getAll();
         var pref = allPrefs.get(key);
 
-        if (pref instanceof java.lang.String) {
+        debugger;
+        if (typeof pref === "string") {
             this.getPreferences().edit().putString(key, value).commit();
-        } else if (pref instanceof java.lang.Boolean) {
+        }
+        else if (pref instanceof java.lang.Boolean) {
             this.getPreferences().edit().putBoolean(key, value).commit();
+        }
+        else if (typeof pref === "number") {
+            this.getPreferences().edit().putInt(key, value).commit();
         }
     }
 
     public getValue(key: string, defaultValue?: any): any {
-        debugger;
+        
         var allPrefs = this.getPreferences().getAll();
         var pref = allPrefs.get(key);
-        
-        if (pref instanceof java.lang.Boolean) {
+
+        debugger;
+        if (typeof pref === "string") {
+            if (!defaultValue)
+                defaultValue = false;
+
+            return this.getPreferences().getString(key, defaultValue);
+        } 
+        else if (pref instanceof java.lang.Boolean) {
             if (!defaultValue)
                 defaultValue = false;
             
             return this.getPreferences().getBoolean(key, defaultValue);
-        } else {
-            //Fallback to assuming string, because ¯\_(ツ)_/¯
+        } 
+        else if (typeof pref === "number") {
             if (!defaultValue)
-                defaultValue = "";
+                defaultValue = 0;
 
-            return this.getPreferences().getString(key, defaultValue);
-        }
+            return this.getPreferences().getInt(key, defaultValue);
+        } 
+
+        //Fallback to assuming string, because ¯\_(ツ)_/¯
+        return null;
+    }
+
+    public clear() {
+        this.getPreferences().edit().clear().commit();
     }
 
     public openSettings() {

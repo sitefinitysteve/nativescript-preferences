@@ -18,7 +18,11 @@ export class Preferences extends Common {
     }
 
     public openSettings() {
-        UIApplication.sharedApplication.openURL(UIApplicationOpenSettingsURLString);
+        UIApplication.sharedApplication.openURL(NSURL.URLWithString(UIApplicationOpenSettingsURLString));
+    }
+
+    public clear() {
+        
     }
 
     //https://stackoverflow.com/questions/6291477/how-to-retrieve-values-from-settings-bundle-in-objective-c
