@@ -13,9 +13,15 @@ export function pageLoaded(args: observable.EventData) {
     prefs = new Preferences();
     
     model = observable.fromObject({
-        name_preference: prefs.getValue("name_preference", "Not set"),
-        enabled_preference: prefs.getValue("enabled_preference", false),
+        name_preference: "Not set",
+        enabled_preference: false,
     });
+
+    reloadPrefs();
+
+    setInterval(() => {
+        reloadPrefs();
+    }, 2000);
 
     page.bindingContext = model;
 }
@@ -38,6 +44,16 @@ exports.onDebug = function (args: observable.EventData) {
     debugger;
 }
 
+exports.onReload = function (args: observable.EventData) {
+    reloadPrefs();
+}
+
 exports.onClear = function (args: observable.EventData) {
     prefs.clear();
+}
+
+function reloadPrefs() {
+    console.log("Reloading prefs");
+    model.set("name_preference", prefs.getValue("name_preference", "Not set"));
+    model.set("enabled_preference", prefs.getValue("enabled_preference", false));
 }

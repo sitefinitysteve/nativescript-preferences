@@ -9,15 +9,16 @@
     <StackLayout class="hr-light"></StackLayout>
     <GridLayout class="p-20" rows="auto, auto">
       <StackLayout row="0" orientation="horizontal">
-          <Label text="Name" textWrap="true" />
-          <Label text="{{ name_preference }}" textWrap="true" />
+          <Label text="Name: " textWrap="true" />
+          <Label text="{{ name_preference == '' ? 'Not set' : name_preference }}" textWrap="true" />
       </StackLayout>
       <StackLayout row="1" orientation="horizontal">
-          <Label text="Enabled" textWrap="true" />
+          <Label text="Enabled: " textWrap="true" />
           <Label text="{{ enabled_preference }}" textWrap="true" />
       </StackLayout>
     </GridLayout>
     <StackLayout class="p-20">
+      <Button class="btn btn-default" text="Reload Prefs" tap="onReload" />
       <Button class="btn btn-default" text="Debug" tap="onDebug" />
       <Button class="btn btn-default" text="Clear" tap="onClear" />
     </StackLayout>
