@@ -2,8 +2,8 @@
 
 This plugin allows native preference saving\loading on iOS and Android
 
-<img src="/images/ios-sample.gif" alt="iOS Sample" style="max-width: 200px;"/>
-<img src="/images/android-sample.gif" alt="Android Sample" style="max-width: 200px;"/>
+![](/images/ios-sample.gif)
+![](/images/android-sample.gif)
 
 ## Prerequisites / Requirements
 
