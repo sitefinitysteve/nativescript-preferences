@@ -29,7 +29,7 @@ export class Preferences extends Common {
         debugger;
         if (typeof pref === "string") {
             if (!defaultValue)
-                defaultValue = false;
+                defaultValue = "";
 
             return this.getPreferences().getString(key, defaultValue);
         } 
