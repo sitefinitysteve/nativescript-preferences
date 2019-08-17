@@ -9,7 +9,7 @@ export class Preferences extends Common {
         var allPrefs = this.getPreferences().getAll();
         var pref = allPrefs.get(key);
 
-        debugger;
+
         if (typeof pref === "string") {
             this.getPreferences().edit().putString(key, value).commit();
         }
@@ -26,7 +26,7 @@ export class Preferences extends Common {
         var allPrefs = this.getPreferences().getAll();
         var pref = allPrefs.get(key);
 
-        debugger;
+
         if (typeof pref === "string") {
             if (!defaultValue)
                 defaultValue = "";
@@ -55,7 +55,7 @@ export class Preferences extends Common {
     }
 
     public openSettings() {
-        debugger;
+
         var activity = frameModule.topmost().android.activity;
         
         var intent = new android.content.Intent(activity, com.sitefinitysteve.nativescriptsettings.NativescriptSettingsActivity.class);
