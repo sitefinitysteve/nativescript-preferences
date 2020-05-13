@@ -22,7 +22,7 @@ export class Preferences extends Common {
     }
 
     public clear() {
-        
+
     }
 
     //https://stackoverflow.com/questions/6291477/how-to-retrieve-values-from-settings-bundle-in-objective-c
@@ -36,7 +36,7 @@ export class Preferences extends Common {
         let prefs: number = (<any>preferences).count;
         var defaultsToRegister = NSMutableDictionary.alloc().initWithCapacity(prefs);
 
-        for (var i = 0; i < prefs; i++){
+        for (var i = 0; i < prefs; i++) {
             var prefSpecification = (<any>preferences).objectAtIndex(i);
             var key = prefSpecification.objectForKey("Key")
             if (key) {

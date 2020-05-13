@@ -1,5 +1,5 @@
 import * as app from 'tns-core-modules/application/application';
-import * as frameModule from 'tns-core-modules/ui/frame/frame';
+import { Frame } from "tns-core-modules/ui/frame"
 import { Common } from './preferences.common';
 
 declare var com;
@@ -22,7 +22,7 @@ export class Preferences extends Common {
     }
 
     public getValue(key: string, defaultValue?: any): any {
-        
+
         var allPrefs = this.getPreferences().getAll();
         var pref = allPrefs.get(key);
 
@@ -32,19 +32,19 @@ export class Preferences extends Common {
                 defaultValue = "";
 
             return this.getPreferences().getString(key, defaultValue);
-        } 
+        }
         else if (pref instanceof java.lang.Boolean) {
             if (!defaultValue)
                 defaultValue = false;
-            
+
             return this.getPreferences().getBoolean(key, defaultValue);
-        } 
+        }
         else if (typeof pref === "number") {
             if (!defaultValue)
                 defaultValue = 0;
 
             return this.getPreferences().getInt(key, defaultValue);
-        } 
+        }
 
         //Fallback to assuming string, because ¯\_(ツ)_/¯
         return null;
@@ -56,10 +56,15 @@ export class Preferences extends Common {
 
     public openSettings() {
 
-        var activity = frameModule.topmost().android.activity;
-        
-        var intent = new android.content.Intent(activity, com.sitefinitysteve.nativescriptsettings.NativescriptSettingsActivity.class);
-        activity.startActivity(intent);
+        var frame = Frame.topmost();
+        if (frame) {
+            var activity = frame.android.activity;
+
+            var intent = new android.content.Intent(activity, com.sitefinitysteve.nativescriptsettings.NativescriptSettingsActivity.class);
+            activity.startActivity(intent);
+        }else{
+            console.log("UNABLE TO FIND Frame.topmost()");
+        }
     }
 
 
