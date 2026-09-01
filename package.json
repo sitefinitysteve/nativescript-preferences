@@ -1,0 +1,14 @@
+{
+	"name": "nativescript-preferences-workspace",
+	"private": true,
+	"description": "Development workspace for nativescript-preferences. The publishable package lives in ./src, the demo app in ./demo.",
+	"scripts": {
+		"build": "npm --prefix src install && npm --prefix src run build",
+		"typecheck": "npm --prefix src install && npm --prefix src run typecheck",
+		"pack": "npm --prefix src pack --pack-destination ./",
+		"demo.install": "npm --prefix demo install",
+		"demo.android": "cd demo && ns run android",
+		"demo.ios": "cd demo && ns run ios",
+		"demo.clean": "cd demo && ns clean"
+	}
+}

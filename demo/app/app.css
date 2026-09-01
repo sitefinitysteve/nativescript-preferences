@@ -1,5 +1,24 @@
-﻿@import "~@nativescript/theme/css/core.css";
-@import "~@nativescript/theme/css/blue.css";
+@import '@nativescript/theme/css/core.css';
+@import '@nativescript/theme/css/default.css';
 
-/* Place any CSS rules you want to apply on both iOS and Android here.
-This is where the vast majority of your CSS code goes. */
+.section {
+  margin-top: 16;
+  margin-bottom: 4;
+  font-size: 12;
+  text-transform: uppercase;
+  letter-spacing: 0.1;
+  color: #757575;
+}
+
+.row {
+  padding: 8 0;
+}
+
+.value {
+  font-weight: bold;
+}
+
+.log {
+  font-size: 12;
+  color: #757575;
+}
