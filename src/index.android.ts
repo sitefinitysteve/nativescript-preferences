@@ -1,5 +1,5 @@
 import { ActionBar, Application, Frame, NavigationButton, Page, Trace, Utils, View } from '@nativescript/core';
-import { OpenSettingsOptions, PreferenceScreenEventData, PreferenceValue, PreferencesCommon, PreferencesOptions, PreferencesViewBase, resourceProperty, rootKeyProperty, suiteNameProperty, traceCategory } from './common';
+import { OpenSettingsOptions, PreferenceScreenEventData, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, resourceProperty, rootKeyProperty, suiteNameProperty, traceCategory } from './common';
 
 export * from './common';
 
@@ -53,11 +53,11 @@ function fromJava(value: any): PreferenceValue | undefined {
 	return String(value);
 }
 
-export class Preferences extends PreferencesCommon {
+export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends PreferencesCommon<T> {
 	private _prefs: android.content.SharedPreferences;
 	private _listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener | null = null;
 
-	constructor(options?: PreferencesOptions) {
+	constructor(options?: PreferencesOptions<T>) {
 		super(options);
 		this._prefs = appContext().getSharedPreferences(sharedPreferencesName(this.suiteName), android.content.Context.MODE_PRIVATE);
 		this._init();

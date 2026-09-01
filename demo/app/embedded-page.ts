@@ -1,9 +1,10 @@
 import { EventData, Frame, Page } from '@nativescript/core';
-import { PreferenceScreenEventData, Preferences } from 'nativescript-preferences';
+import { PreferenceScreenEventData } from 'nativescript-preferences';
+import { settings } from './settings';
 
 export function navigatingTo(args: EventData) {
   const page = <Page>args.object;
-  page.bindingContext = Preferences.shared;
+  page.bindingContext = settings;
 }
 
 export function goBack() {

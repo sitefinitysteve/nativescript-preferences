@@ -3,17 +3,23 @@ import { EventData, Frame, Observable, Property, View } from '@nativescript/core
 /** Every value type that can live in the native preference store on both platforms. */
 export type PreferenceValue = string | number | boolean | string[];
 
-export interface PreferenceChangeEventData extends EventData {
-	object: Preferences;
+/** Constraint for the generic parameter of `Preferences`: every property must be a `PreferenceValue`. */
+export type PreferenceSchemaOf<T> = { [K in keyof T]: PreferenceValue };
+
+/** The untyped schema: any key, any `PreferenceValue`. */
+export type PreferenceSchema = Record<string, PreferenceValue>;
+
+export interface PreferenceChangeEventData<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends EventData {
+	object: Preferences<T>;
 	/** The key that changed. */
-	key: string;
-	/** The new value, or `undefined` when the key was removed. */
+	key: keyof T & string;
+	/** The new effective value: the stored value, else the default, else `undefined`. */
 	value: PreferenceValue | undefined;
-	/** The previous value, or `undefined` when the key did not exist. */
+	/** The previous effective value. */
 	oldValue: PreferenceValue | undefined;
 }
 
-export interface PreferencesOptions {
+export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = PreferenceSchema> {
 	/**
 	 * Name of a separate preference store.
 	 * iOS: an App Group suite name such as `group.com.example.app`.
@@ -21,6 +27,11 @@ export interface PreferencesOptions {
 	 * Leave empty for the store the OS settings UI reads and writes.
 	 */
 	suiteName?: string;
+	/**
+	 * Values to fall back to while a key has nothing stored. They are also mirrored as bindable
+	 * properties. On iOS they are registered in the `NSRegistrationDomain` as well.
+	 */
+	defaults?: Partial<T>;
 }
 
 export interface OpenSettingsOptions {
@@ -54,18 +65,29 @@ export interface PreferenceScreenEventData extends EventData {
  * iOS: `NSUserDefaults`, the store behind the app's page in the Settings app.
  * Android: the default `SharedPreferences`, the store `PreferenceScreen` widgets edit.
  *
+ * Give it a schema and defaults for typed keys:
+ *
+ * ```ts
+ * interface Settings { name: string; enabled: boolean; volume: number }
+ * export const settings = new Preferences<Settings>({ defaults: { name: '', enabled: true, volume: 50 } });
+ * settings.get('volume'); // number
+ * ```
+ *
  * The instance is an `Observable` whose keys are mirrored as plain properties, so it works as a
  * `bindingContext` with one-way and two-way bindings.
  */
-export declare class Preferences extends Observable {
+export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends Observable {
 	/** Raised with a `PreferenceChangeEventData` whenever a key changes, from any source. */
 	static readonly changeEvent: string;
 
-	/** The store behind the OS settings UI, created on first access. */
+	/** Untyped instance for the store behind the OS settings UI, created on first access. */
 	static readonly shared: Preferences;
 
 	/** The store name passed to the constructor, if any. */
 	readonly suiteName: string | undefined;
+
+	/** The in-code defaults passed to the constructor. */
+	readonly defaults: Readonly<Partial<T>>;
 
 	/** iOS only. The underlying `NSUserDefaults`. */
 	readonly ios: any /* NSUserDefaults */;
@@ -73,62 +95,62 @@ export declare class Preferences extends Observable {
 	/** Android only. The underlying `android.content.SharedPreferences`. */
 	readonly android: any /* android.content.SharedPreferences */;
 
-	/**
-	 * Creates an instance bound to a store. Prefer `Preferences.shared` unless you need a
-	 * separate App Group suite or SharedPreferences file.
-	 */
-	constructor(options?: PreferencesOptions);
+	constructor(options?: PreferencesOptions<T>);
 
-	/** Returns the stored value with its native type, or `defaultValue` when the key is absent. */
-	get(key: string, defaultValue?: PreferenceValue): any;
+	/**
+	 * Returns the stored value with its native type, else `fallback`, else the in-code default,
+	 * else `undefined`.
+	 */
+	get<K extends keyof T & string>(key: K): T[K] | undefined;
+	get<K extends keyof T & string>(key: K, fallback: T[K]): T[K];
 
 	/** Returns the value as a string. Numbers, booleans and arrays are converted. */
-	getString(key: string, defaultValue?: string): string;
+	getString(key: keyof T & string, fallback?: string): string;
 
 	/** Returns the value as a number. Numeric strings are parsed; booleans map to 1 and 0. */
-	getNumber(key: string, defaultValue?: number): number;
+	getNumber(key: keyof T & string, fallback?: number): number;
 
 	/** Returns the value as a boolean. Accepts "true"/"false", "1"/"0", "yes"/"no", "on"/"off" and numbers. */
-	getBoolean(key: string, defaultValue?: boolean): boolean;
+	getBoolean(key: keyof T & string, fallback?: boolean): boolean;
 
 	/** Returns a string array value (Android `MultiSelectListPreference`, iOS array). */
-	getStringArray(key: string, defaultValue?: string[]): string[];
+	getStringArray(key: keyof T & string, fallback?: string[]): string[];
 
-	/** Whether a value (stored or registered as default) exists for the key. */
-	has(key: string): boolean;
+	/** Whether a value is stored natively for the key. In-code defaults do not count. */
+	has(key: keyof T & string): boolean;
 
-	/** All known keys. */
-	keys(): string[];
+	/** Every key that is stored natively or has an in-code default. */
+	keys(): (keyof T & string)[];
 
-	/** A snapshot of every key and value. */
-	getAll(): Record<string, PreferenceValue>;
+	/** A snapshot of every effective value. */
+	getAll(): Partial<T>;
 
 	/**
 	 * Stores a value. `null` or `undefined` removes the key.
 	 * Android keeps the Java type a key already has (int, long, float) so `PreferenceScreen`
 	 * widgets keep reading it; new numeric keys are stored as int when integral, float otherwise.
 	 */
-	set(key: string, value: PreferenceValue | null | undefined): void;
+	set<K extends keyof T & string>(key: K, value: T[K] | null | undefined): void;
 
-	/** Removes a key. Registered defaults remain in effect. */
-	remove(key: string): void;
+	/** Removes a stored value. The in-code default, if any, applies again. */
+	remove(key: keyof T & string): void;
 
-	/** Removes every stored value. Registered defaults remain in effect. */
+	/** Removes every stored value. Defaults remain in effect. */
 	clear(): void;
 
 	/** Re-reads the native store and raises change events for anything that differs. */
 	refresh(): void;
 
 	/** Subscribes to every change. Returns a function that unsubscribes. */
-	onChange(callback: (data: PreferenceChangeEventData) => void): () => void;
+	onChange(callback: (data: PreferenceChangeEventData<T>) => void): () => void;
 
 	/** Subscribes to changes of one key. Returns a function that unsubscribes. */
-	onChange(key: string, callback: (value: PreferenceValue | undefined, data: PreferenceChangeEventData) => void): () => void;
+	onChange<K extends keyof T & string>(key: K, callback: (value: T[K] | undefined, data: PreferenceChangeEventData<T>) => void): () => void;
 
 	/**
 	 * iOS: registers the `DefaultValue` of every preference in `<bundleName>.bundle` (default
-	 * "Settings") so reads fall back to them before the user opens Settings. Runs automatically for
-	 * `Preferences.shared` on every launch. Returns the defaults that were found.
+	 * "Settings") so reads fall back to them before the user opens Settings. Runs automatically
+	 * on every launch for instances without a `suiteName`. Returns the defaults that were found.
 	 *
 	 * Android: writes the `android:defaultValue` of every preference in `res/xml/<resource>.xml`
 	 * (default "preferences") that has no stored value yet. Runs once per install unless
@@ -146,12 +168,6 @@ export declare class Preferences extends Observable {
 
 	/** Stops listening to native changes. Only needed for short-lived instances. */
 	dispose(): void;
-
-	/** @deprecated Use `get()`. */
-	getValue(key: string, defaultValue?: PreferenceValue): any;
-
-	/** @deprecated Use `set()`. */
-	setValue(key: string, value: PreferenceValue | null | undefined): void;
 }
 
 /**

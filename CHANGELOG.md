@@ -6,7 +6,8 @@ Rewritten for NativeScript 9.
 
 ### Added
 
-- `Preferences.shared` singleton, typed getters (`getString`, `getNumber`, `getBoolean`, `getStringArray`), `has`, `keys`, `getAll`, `remove`, `refresh`, `dispose`.
+- Typed schema and in-code defaults: `new Preferences<Settings>({ defaults })` gives typed `get`, `set`, `onChange` and never-undefined reads. Defaults are mirrored as bindable properties and registered natively on iOS.
+- `Preferences.shared` singleton, coercing getters (`getString`, `getNumber`, `getBoolean`, `getStringArray`), `has`, `keys`, `getAll`, `remove`, `refresh`, `dispose`.
 - Change events from any source, including the OS settings UI: `on('change')`, `onChange(callback)`, `onChange(key, callback)`.
 - The instance is an `Observable` that mirrors stored keys as properties, so it can be used as a `bindingContext` with one-way and two-way bindings.
 - `PreferencesView`, a view that hosts the Android preference screen inside any page, tab or modal, with a `navigateToScreen` event for nested screens.
@@ -23,9 +24,9 @@ Rewritten for NativeScript 9.
 - `openSettings()` returns a `Promise<boolean>` on both platforms.
 - Package targets `@nativescript/core` 9 (`tns-core-modules` is gone) and ships ES modules with a hand-written `index.d.ts`.
 
-### Deprecated
+### Removed
 
-- `getValue` / `setValue` remain as aliases for `get` / `set`.
+- `getValue` / `setValue`. Use `get` / `set`; see the migration table in the README.
 
 ## 1.2.0
 

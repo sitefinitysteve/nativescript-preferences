@@ -5,6 +5,7 @@ Native app preferences for NativeScript 9.
 - Read and write the store the operating system uses for your app: `NSUserDefaults` on iOS, the default `SharedPreferences` on Android.
 - Send users to the OS-provided settings UI instead of building your own: the app's page in the iOS Settings app, or an AndroidX `PreferenceScreen` rendered from `res/xml/preferences.xml`.
 - Keep your own screens in sync with the same values through change events and NativeScript bindings, so a setting can live in the OS UI and in-app at the same time.
+- Typed keys and in-code defaults, so `settings.get('volume')` is a `number` and never `undefined`.
 
 <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-sample.gif" width="200" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-sample.gif" width="200" />
 
@@ -26,40 +27,51 @@ Both platforms describe preferences declaratively. Use the same keys on both so 
 
 ## Usage
 
+Declare the schema once, with the same keys as your plist and XML, and share the instance across the app.
+
 ```ts
+// settings.ts
 import { Preferences } from 'nativescript-preferences';
 
-const prefs = Preferences.shared;
+export interface Settings {
+  name_preference: string;
+  enabled_preference: boolean;
+  theme_preference: 'system' | 'light' | 'dark';
+  volume_preference: number;
+}
 
-// Typed reads with defaults
-prefs.getString('name_preference', 'Anonymous');
-prefs.getBoolean('enabled_preference', true);
-prefs.getNumber('volume_preference', 50);
-prefs.getStringArray('topics_preference', []);
-prefs.get('theme_preference'); // raw value with its native type
+export const settings = new Preferences<Settings>({
+  defaults: { name_preference: '', enabled_preference: true, theme_preference: 'system', volume_preference: 50 },
+});
+```
 
-// Writes
-prefs.set('name_preference', 'Steve');
-prefs.set('enabled_preference', false);
-prefs.set('name_preference', null); // removes the key
-prefs.clear(); // removes everything; registered defaults still apply
+```ts
+import { settings } from './settings';
+
+settings.get('volume_preference');            // number, falls back to the default
+settings.get('theme_preference');             // 'system' | 'light' | 'dark'
+settings.set('enabled_preference', false);    // typed: a string here is a compile error
+settings.set('name_preference', null);        // removes the stored value, the default applies again
+settings.clear();                             // removes everything, defaults still apply
 
 // React to changes from anywhere, including the OS settings UI
-const stop = prefs.onChange('enabled_preference', (value) => console.log('enabled is now', value));
-prefs.onChange((change) => console.log(change.key, change.oldValue, '->', change.value));
+const stop = settings.onChange('enabled_preference', (value) => console.log('enabled is now', value));
+settings.onChange((change) => console.log(change.key, change.oldValue, '->', change.value));
 stop();
 
 // Open the OS settings UI
-await prefs.openSettings();
+await settings.openSettings();
 ```
+
+Prefer no schema? `Preferences.shared` is an untyped instance of the same store, and the coercing getters (`getString`, `getNumber`, `getBoolean`, `getStringArray`) work on both.
 
 ### Use it as a binding context
 
-`Preferences` is an `Observable` that mirrors every stored key as a property. Point a page at it and bind, two-way if you like. Values edited in the OS UI show up immediately, and values edited in-app are written straight to the native store.
+`Preferences` is an `Observable` that mirrors every key (stored or defaulted) as a property. Point a page at it and bind, two-way if you like. Values edited in the OS UI show up immediately, and values edited in-app are written straight to the native store.
 
 ```ts
 export function navigatingTo(args: EventData) {
-  (<Page>args.object).bindingContext = Preferences.shared;
+  (<Page>args.object).bindingContext = settings;
 }
 ```
 
@@ -76,7 +88,7 @@ A key that clashes with a member of the class (for example `set` or `keys`) is s
 Android has no OS-hosted settings page, so `openSettings()` navigates the topmost `Frame` to a page that renders `res/xml/preferences.xml` with `PreferenceFragmentCompat`. Nested `PreferenceScreen` elements with an `android:key` open as further pages, and the hardware back button works as usual.
 
 ```ts
-await prefs.openSettings({
+await settings.openSettings({
   title: 'Settings',        // ActionBar title
   resource: 'preferences',  // res/xml/<resource>.xml
   rootKey: 'advanced',      // open a nested PreferenceScreen directly
@@ -104,8 +116,11 @@ On iOS the view renders nothing and `PreferencesView.isSupported` is `false`. Ha
 
 ### Defaults
 
-- iOS: the `DefaultValue` of every entry in `Settings.bundle` is registered on every launch for `Preferences.shared`, so reads work before the user ever opens Settings. Call `registerDefaults('OtherBundle')` for a different bundle.
-- Android: call `prefs.registerDefaults()` once (for example at startup) to persist the `android:defaultValue` entries of `preferences.xml`. The preference screen also applies them when it is first shown.
+Three layers, from strongest to weakest:
+
+1. A value the user stored (in-app or through the OS UI).
+2. Native defaults: the `DefaultValue` entries of `Settings.bundle` are registered on every launch on iOS; on Android call `registerDefaults()` once to persist the `android:defaultValue` entries of `preferences.xml` (the preference screen also applies them when first shown).
+3. In-code `defaults` passed to the constructor. They are mirrored as bindable properties and, on iOS, registered natively too.
 
 ### Separate stores
 
@@ -124,29 +139,31 @@ On iOS the suite must be an App Group your app is entitled to. On Android it is 
 | `number` | `Integer` when integral, `Double` otherwise | keeps an existing `int`, `long` or `float`; new keys use `int` when integral, `float` otherwise |
 | `string[]` | `NSArray<NSString>` | `Set<String>` (`MultiSelectListPreference`) |
 
-The typed getters coerce: `getBoolean` understands `"true"`, `"1"`, `"yes"`, `"on"` and numbers, and `getNumber` parses numeric strings.
+The coercing getters are forgiving: `getBoolean` understands `"true"`, `"1"`, `"yes"`, `"on"` and numbers, and `getNumber` parses numeric strings.
 
 ## API
 
-### `Preferences`
+### `Preferences<Schema>`
+
+`Schema` is an interface whose properties are `string`, `number`, `boolean` or `string[]`. Omit it for untyped access.
 
 | Member | Description |
 | --- | --- |
-| `static shared` | Instance for the store behind the OS settings UI, created on first access. |
+| `static shared` | Untyped instance for the store behind the OS settings UI, created on first access. |
 | `static changeEvent` | `"change"`, for `prefs.on(Preferences.changeEvent, handler)`. |
-| `new Preferences(options?)` | `options.suiteName` selects a separate store. |
-| `get(key, default?)` | Raw value with its native type. |
-| `getString / getNumber / getBoolean / getStringArray(key, default?)` | Coerced reads. |
+| `new Preferences(options?)` | `options.defaults` seeds typed fallbacks; `options.suiteName` selects a separate store. |
+| `defaults` | The frozen in-code defaults. |
+| `get(key, fallback?)` | Stored value, else `fallback`, else the default. Typed by the schema. |
+| `getString / getNumber / getBoolean / getStringArray(key, fallback?)` | Coerced reads. |
 | `set(key, value)` | Writes a value; `null` or `undefined` removes the key. |
-| `remove(key)`, `clear()` | Remove one key or everything. |
-| `has(key)`, `keys()`, `getAll()` | Inspect the store. |
+| `remove(key)`, `clear()` | Remove one key or everything. Defaults stay in effect. |
+| `has(key)`, `keys()`, `getAll()` | Inspect the store. `has` ignores in-code defaults. |
 | `onChange(callback)`, `onChange(key, callback)` | Subscribe; returns an unsubscribe function. |
 | `refresh()` | Re-read the native store and raise events for differences. |
 | `registerDefaults(...)` | iOS: register `Settings.bundle` defaults. Android: persist `preferences.xml` defaults. |
 | `openSettings(options?)` | Open the OS settings UI. Resolves with `true` once presented. |
 | `ios` / `android` | The underlying `NSUserDefaults` / `SharedPreferences`. |
 | `dispose()` | Stop observing native changes (only for short-lived instances). |
-| `getValue` / `setValue` | Deprecated aliases from 1.x. |
 
 ### `PreferencesView`
 
@@ -160,10 +177,23 @@ The typed getters coerce: `getBoolean` understands `"true"`, `"1"`, `"yes"`, `"o
 
 ## Migrating from 1.x
 
-- `new Preferences()` still works, but prefer `Preferences.shared`.
-- `getValue` / `setValue` still work and map to `get` / `set`.
-- Android no longer ships a prebuilt `.aar` or its own `Activity`. Delete any manifest entries you added for `com.sitefinitysteve.nativescriptsettings` and switch `preferences.xml` to AndroidX widgets (`SwitchPreference` becomes `SwitchPreferenceCompat`).
-- Android `openSettings()` now navigates a NativeScript page, so it returns a `Promise` and respects your Frame and ActionBar styling.
+Version 2 is a rewrite with a new API. The `Settings.bundle` and `preferences.xml` files you already have keep working, with one Android change noted below.
+
+| 1.x | 2.x |
+| --- | --- |
+| `import { Preferences } from 'nativescript-preferences'; const prefs = new Preferences();` | `Preferences.shared`, or `new Preferences<Schema>({ defaults })` for typed keys. |
+| `prefs.getValue(key)` returned `null` for unknown keys, `""` / `false` / `0` on Android depending on the stored type | `prefs.get(key, fallback?)` returns `undefined` for unknown keys, or use `getString` / `getNumber` / `getBoolean` for coerced reads. |
+| `prefs.getValue(key, defaultValue)` | `prefs.get(key, defaultValue)`, or put the default in the constructor `defaults`. |
+| `prefs.setValue(key, value)` | `prefs.set(key, value)`. Numbers no longer force `putInt` on Android; the existing Java type is kept. |
+| `prefs.clear()` | Same, and defaults still apply afterwards. |
+| `prefs.openSettings()` returned nothing and started a custom `Activity` | Returns `Promise<boolean>`; Android navigates a NativeScript page with your Frame and ActionBar styling. |
+| Polling to detect changes | `prefs.onChange(...)` or bind directly to the instance. |
+| `tns-core-modules` 6 | `@nativescript/core` 9. |
+
+Android specifics:
+
+- Remove the `com.sitefinitysteve.nativescriptsettings.NativescriptSettingsActivity` entry if you added one to `AndroidManifest.xml`; the plugin no longer ships an `.aar` or an `Activity`.
+- Switch `preferences.xml` to AndroidX widgets: `SwitchPreference` becomes `SwitchPreferenceCompat`, and `SeekBarPreference` / `app:` attributes are available.
 
 ## Development
 

@@ -1,5 +1,5 @@
 import { Trace } from '@nativescript/core';
-import { OpenSettingsOptions, PreferenceValue, PreferencesCommon, PreferencesOptions, PreferencesViewBase, traceCategory } from './common';
+import { OpenSettingsOptions, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, traceCategory } from './common';
 
 export * from './common';
 
@@ -93,18 +93,19 @@ function readSettingsBundleDefaults(bundleName: string): Record<string, Preferen
 	return result;
 }
 
-export class Preferences extends PreferencesCommon {
+export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends PreferencesCommon<T> {
 	private _defaults: NSUserDefaults;
 	private _domain: string;
 	private _observer: any = null;
 
-	constructor(options?: PreferencesOptions) {
+	constructor(options?: PreferencesOptions<T>) {
 		super(options);
 		this._defaults = this.suiteName ? NSUserDefaults.alloc().initWithSuiteName(this.suiteName) : NSUserDefaults.standardUserDefaults;
 		this._domain = this.suiteName || NSBundle.mainBundle.bundleIdentifier;
 		if (!this.suiteName) {
 			this.registerDefaults();
 		}
+		this._registerDictionary(this.defaults);
 		this._init();
 	}
 
@@ -120,16 +121,21 @@ export class Preferences extends PreferencesCommon {
 	 */
 	registerDefaults(bundleName = 'Settings'): Record<string, PreferenceValue> {
 		const defaults = readSettingsBundleDefaults(bundleName);
-		const keys = Object.keys(defaults);
-		if (keys.length) {
-			const dictionary = NSMutableDictionary.new<string, any>();
-			for (const key of keys) {
-				dictionary.setObjectForKey(toNS(defaults[key]), key);
-			}
-			this._defaults.registerDefaults(dictionary);
-			this._sync();
-		}
+		this._registerDictionary(defaults);
 		return defaults;
+	}
+
+	private _registerDictionary(values: Record<string, PreferenceValue>): void {
+		const keys = Object.keys(values);
+		if (!keys.length) {
+			return;
+		}
+		const dictionary = NSMutableDictionary.new<string, any>();
+		for (const key of keys) {
+			dictionary.setObjectForKey(toNS(values[key]), key);
+		}
+		this._defaults.registerDefaults(dictionary);
+		this._sync();
 	}
 
 	openSettings(_options?: OpenSettingsOptions): Promise<boolean> {

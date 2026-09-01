@@ -3,14 +3,23 @@ import { Application, EventData, Frame, Observable, Property, Trace, View } from
 /** Every value type that can live in the native preference store on both platforms. */
 export type PreferenceValue = string | number | boolean | string[];
 
-export interface PreferenceChangeEventData extends EventData {
-	object: PreferencesCommon;
-	key: string;
+/** Constraint for the generic parameter of `Preferences`: every property must be a `PreferenceValue`. */
+export type PreferenceSchemaOf<T> = { [K in keyof T]: PreferenceValue };
+
+/** The untyped schema: any key, any `PreferenceValue`. */
+export type PreferenceSchema = Record<string, PreferenceValue>;
+
+export interface PreferenceChangeEventData<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends EventData {
+	object: PreferencesCommon<T>;
+	/** The key that changed. */
+	key: keyof T & string;
+	/** The new effective value: the stored value, else the default, else `undefined`. */
 	value: PreferenceValue | undefined;
+	/** The previous effective value. */
 	oldValue: PreferenceValue | undefined;
 }
 
-export interface PreferencesOptions {
+export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = PreferenceSchema> {
 	/**
 	 * Name of a separate preference store.
 	 * iOS: an App Group suite name (`group.com.example.app`).
@@ -18,6 +27,11 @@ export interface PreferencesOptions {
 	 * Leave empty for the store the OS settings UI reads and writes.
 	 */
 	suiteName?: string;
+	/**
+	 * Values to fall back to while a key has nothing stored. They are also mirrored as bindable
+	 * properties. On iOS they are registered in the `NSRegistrationDomain` as well.
+	 */
+	defaults?: Partial<T>;
 }
 
 export interface OpenSettingsOptions {
@@ -117,14 +131,14 @@ export function coerceStringArray(value: PreferenceValue | undefined, fallback: 
 /**
  * Shared implementation. Platform classes provide the native store and the settings UI.
  *
- * The instance is an `Observable` whose stored keys are mirrored as plain properties, so it can be
- * used directly as a `bindingContext` with two-way bindings.
+ * The instance is an `Observable` whose keys (stored or defaulted) are mirrored as plain
+ * properties, so it can be used directly as a `bindingContext` with two-way bindings.
  */
-export abstract class PreferencesCommon extends Observable {
+export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends Observable {
 	/** Raised with a `PreferenceChangeEventData` whenever a key changes, from any source. */
 	static readonly changeEvent = 'change';
 
-	/** The store behind the OS settings UI, created on first access. */
+	/** Untyped instance for the store behind the OS settings UI, created on first access. */
 	static get shared(): PreferencesCommon {
 		const ctor = this as unknown as { new (): PreferencesCommon; _shared?: PreferencesCommon };
 		if (!Object.prototype.hasOwnProperty.call(ctor, '_shared') || !ctor._shared) {
@@ -133,15 +147,28 @@ export abstract class PreferencesCommon extends Observable {
 		return ctor._shared;
 	}
 
+	/** The store name passed to the constructor, if any. */
 	readonly suiteName: string | undefined;
+
+	/** The in-code defaults passed to the constructor. */
+	readonly defaults: Readonly<Partial<T>>;
 
 	private readonly _mirror = new Map<string, PreferenceValue>();
 	private readonly _reservedWarned = new Set<string>();
 	private _initialized = false;
 
-	constructor(options?: PreferencesOptions) {
+	constructor(options?: PreferencesOptions<T>) {
 		super();
 		this.suiteName = options?.suiteName || undefined;
+		const defaults: Partial<T> = {};
+		for (const key of Object.keys(options?.defaults || {})) {
+			const value = options.defaults[key];
+			if (!isPreferenceValue(value)) {
+				throw new TypeError(`nativescript-preferences: unsupported default for "${key}". Use a string, finite number, boolean or string[].`);
+			}
+			(defaults as PreferenceSchema)[key] = value;
+		}
+		this.defaults = Object.freeze(defaults);
 	}
 
 	// Platform contract ---------------------------------------------------------------------
@@ -163,7 +190,7 @@ export abstract class PreferencesCommon extends Observable {
 			return;
 		}
 		this._initialized = true;
-		const all = this._readAll();
+		const all = this._effectiveAll();
 		for (const key of Object.keys(all)) {
 			this._applyMirror(key, all[key], false);
 		}
@@ -179,49 +206,61 @@ export abstract class PreferencesCommon extends Observable {
 
 	// Reading -------------------------------------------------------------------------------
 
-	/** Returns the stored value with its native type, or `defaultValue` when the key is absent. */
-	get(key: string, defaultValue?: PreferenceValue): any {
+	/**
+	 * Returns the stored value with its native type, else `fallback`, else the in-code default,
+	 * else `undefined`.
+	 */
+	get<K extends keyof T & string>(key: K): T[K] | undefined;
+	get<K extends keyof T & string>(key: K, fallback: T[K]): T[K];
+	get(key: string, fallback?: PreferenceValue): PreferenceValue | undefined {
 		const value = this._read(key);
-		return value === undefined ? defaultValue : value;
+		if (value !== undefined) {
+			return value;
+		}
+		return fallback !== undefined ? fallback : (this.defaults as PreferenceSchema)[key];
 	}
 
-	getString(key: string, defaultValue = ''): string {
-		return coerceString(this._read(key), defaultValue);
+	getString(key: keyof T & string, fallback = ''): string {
+		return coerceString(this.get(key), fallback);
 	}
 
-	getNumber(key: string, defaultValue = 0): number {
-		return coerceNumber(this._read(key), defaultValue);
+	getNumber(key: keyof T & string, fallback = 0): number {
+		return coerceNumber(this.get(key), fallback);
 	}
 
-	getBoolean(key: string, defaultValue = false): boolean {
-		return coerceBoolean(this._read(key), defaultValue);
+	getBoolean(key: keyof T & string, fallback = false): boolean {
+		return coerceBoolean(this.get(key), fallback);
 	}
 
-	getStringArray(key: string, defaultValue: string[] = []): string[] {
-		return coerceStringArray(this._read(key), defaultValue);
+	getStringArray(key: keyof T & string, fallback: string[] = []): string[] {
+		return coerceStringArray(this.get(key), fallback);
 	}
 
-	has(key: string): boolean {
+	/** Whether a value is stored natively for the key. In-code defaults do not count. */
+	has(key: keyof T & string): boolean {
 		return this._read(key) !== undefined;
 	}
 
-	keys(): string[] {
-		return Object.keys(this._readAll());
+	/** Every key that is stored natively or has an in-code default. */
+	keys(): (keyof T & string)[] {
+		return Object.keys(this._effectiveAll()) as (keyof T & string)[];
 	}
 
-	getAll(): Record<string, PreferenceValue> {
-		return this._readAll();
+	/** A snapshot of every effective value. */
+	getAll(): Partial<T> {
+		return this._effectiveAll() as Partial<T>;
 	}
 
 	// Writing -------------------------------------------------------------------------------
 
 	/** Stores a value. `null` or `undefined` removes the key. */
+	set<K extends keyof T & string>(key: K, value: T[K] | null | undefined): void;
 	set(key: string, value: PreferenceValue | null | undefined): void {
 		if (typeof key !== 'string' || key === '') {
 			throw new TypeError('nativescript-preferences: a preference key must be a non-empty string.');
 		}
 		if (value === null || value === undefined) {
-			this.remove(key);
+			this.remove(key as keyof T & string);
 			return;
 		}
 		if (!isPreferenceValue(value)) {
@@ -231,12 +270,13 @@ export abstract class PreferencesCommon extends Observable {
 		this._sync(key);
 	}
 
-	remove(key: string): void {
+	/** Removes a stored value. The in-code default, if any, applies again. */
+	remove(key: keyof T & string): void {
 		this._remove(key);
 		this._sync(key);
 	}
 
-	/** Removes every stored value. Registered defaults remain in effect. */
+	/** Removes every stored value. Defaults remain in effect. */
 	clear(): void {
 		this._clear();
 		this._sync();
@@ -249,12 +289,12 @@ export abstract class PreferencesCommon extends Observable {
 
 	// Events --------------------------------------------------------------------------------
 
-	onChange(callback: (data: PreferenceChangeEventData) => void): () => void;
-	onChange(key: string, callback: (value: PreferenceValue | undefined, data: PreferenceChangeEventData) => void): () => void;
-	onChange(keyOrCallback: string | ((data: PreferenceChangeEventData) => void), maybeCallback?: (value: PreferenceValue | undefined, data: PreferenceChangeEventData) => void): () => void {
+	onChange(callback: (data: PreferenceChangeEventData<T>) => void): () => void;
+	onChange<K extends keyof T & string>(key: K, callback: (value: T[K] | undefined, data: PreferenceChangeEventData<T>) => void): () => void;
+	onChange(keyOrCallback: string | ((data: PreferenceChangeEventData<T>) => void), maybeCallback?: (value: any, data: PreferenceChangeEventData<T>) => void): () => void {
 		const handler =
 			typeof keyOrCallback === 'string'
-				? (data: PreferenceChangeEventData) => {
+				? (data: PreferenceChangeEventData<T>) => {
 						if (data.key === keyOrCallback) {
 							maybeCallback(data.value, data);
 						}
@@ -264,19 +304,16 @@ export abstract class PreferencesCommon extends Observable {
 		return () => this.off(PreferencesCommon.changeEvent, handler as (data: EventData) => void);
 	}
 
-	// Legacy 1.x API ------------------------------------------------------------------------
-
-	/** @deprecated Use `get()`. */
-	getValue(key: string, defaultValue?: PreferenceValue): any {
-		return this.get(key, defaultValue);
-	}
-
-	/** @deprecated Use `set()`. */
-	setValue(key: string, value: PreferenceValue | null | undefined): void {
-		this.set(key, value);
-	}
-
 	// Internals -----------------------------------------------------------------------------
+
+	private _effective(key: string): PreferenceValue | undefined {
+		const value = this._read(key);
+		return value !== undefined ? value : (this.defaults as PreferenceSchema)[key];
+	}
+
+	private _effectiveAll(): Record<string, PreferenceValue> {
+		return { ...(this.defaults as PreferenceSchema), ...this._readAll() };
+	}
 
 	/** Reconciles the mirrored state with the native store and raises events for differences. */
 	protected _sync(key?: string): void {
@@ -284,10 +321,10 @@ export abstract class PreferencesCommon extends Observable {
 			return;
 		}
 		if (key !== undefined) {
-			this._applyMirror(key, this._read(key), true);
+			this._applyMirror(key, this._effective(key), true);
 			return;
 		}
-		const all = this._readAll();
+		const all = this._effectiveAll();
 		for (const k of Object.keys(all)) {
 			this._applyMirror(k, all[k], true);
 		}
@@ -322,7 +359,7 @@ export abstract class PreferencesCommon extends Observable {
 		}
 		if (notify) {
 			this.notifyPropertyChange(key, value, oldValue);
-			this.notify<PreferenceChangeEventData>({ eventName: PreferencesCommon.changeEvent, object: this, key, value, oldValue });
+			this.notify<PreferenceChangeEventData<T>>({ eventName: PreferencesCommon.changeEvent, object: this, key: key as keyof T & string, value, oldValue });
 		}
 	}
 
