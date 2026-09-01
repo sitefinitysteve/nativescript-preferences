@@ -1,17 +1,7 @@
-/* Include.gradle configuration: http://docs.nativescript.org/plugins/plugins#includegradle-specification */
-
-android {
-	
-}
-
+// AndroidX Preference renders res/xml/preferences.xml with PreferenceFragmentCompat.
+// Override the version from App_Resources/Android/before-plugins.gradle:
+//   project.ext { androidXPreference = "1.2.1" }
 dependencies {
-	def supportVer = "22.2.0";
-
-      if(project.hasProperty("supportVersion")) {
-       supportVer = supportVersion
-      }
-
-    compile "com.android.support:appcompat-v7:$supportVer"
-    compile "com.android.support:preference-v7:26.1.0"
-
+    def preferenceVersion = project.hasProperty("androidXPreference") ? project.androidXPreference : "1.2.1"
+    implementation "androidx.preference:preference:$preferenceVersion"
 }

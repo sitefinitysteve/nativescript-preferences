@@ -1,28 +1,26 @@
-### Make sure to check the demo app(s) for sample usage 
+### Before you open an issue
 
-### Make sure to check the existing issues in this repository 
+- Check the demo app in `demo/` for sample usage.
+- Search the existing issues in this repository.
 
-### If the demo apps cannot help and there is no issue for your problem, tell us about it
-Please, ensure your title is less than 63 characters long and starts with a capital
-letter.
+### Which platform(s) does the issue occur on?
 
-### Which platform(s) does your issue occur on?
-- iOS/Android/Both 
-- iOS/Android versions 
-- emulator or device. What type of device?
+- iOS / Android / both
+- OS version(s)
+- Emulator or device (which one?)
 
-### Please, provide the following version numbers that your issue occurs with:
+### Versions
 
-- CLI: (run `tns --version` to fetch it)
-- Cross-platform modules: (check the 'version' attribute in the
-`node_modules/tns-core-modules/package.json` file in your project)
-- Runtime(s): (look for the `"tns-android"` and `"tns-ios"` properties in the `package.json` file of your project)
-- Plugin(s): (look for the version numbers in the `package.json` file of your
-project and paste your dependencies and devDependencies here)
+- NativeScript CLI: `ns --version`
+- `@nativescript/core`: see `node_modules/@nativescript/core/package.json`
+- Runtime(s): `@nativescript/android` / `@nativescript/ios` in your `package.json`
+- `nativescript-preferences` version
 
-### Please, tell us how to recreate the issue in as much detail as possible. 
-Describe the steps to reproduce it.
+### Steps to reproduce
 
-### Is there any code involved? 
- - provide a code example to recreate the problem 
- - (EVEN BETTER) provide a .zip with application or refer to a repository with application where the problem is reproducible.
+Describe the steps in as much detail as possible.
+
+### Code
+
+- Provide a code sample that reproduces the problem, or
+- (even better) a repository or .zip with an app where the problem is reproducible.

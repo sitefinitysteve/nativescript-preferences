@@ -1,0 +1,11 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" xmlns:prefs="nativescript-preferences" navigatingTo="navigatingTo">
+  <ActionBar title="Embedded settings">
+    <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+  </ActionBar>
+
+  <GridLayout rows="auto, *">
+    <Label row="0" class="p-16" textWrap="true" text="PreferencesView hosts the Android preference screen inside a regular NativeScript page. Nested screens raise navigateToScreen." />
+    <prefs:PreferencesView row="1" resource="preferences" navigateToScreen="onNavigateToScreen" />
+    <Label row="1" ios:visibility="visible" android:visibility="collapsed" class="p-16 text-center" textWrap="true" text="iOS keeps app preferences in the Settings app, so there is nothing to embed here." />
+  </GridLayout>
+</Page>

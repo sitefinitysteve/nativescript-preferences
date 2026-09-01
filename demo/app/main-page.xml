@@ -1,0 +1,49 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="navigatingTo">
+  <ActionBar title="Preferences demo" />
+
+  <ScrollView>
+    <StackLayout class="p-16">
+      <Label text="Native settings" class="section" />
+      <Button text="Open settings" tap="onOpenSettings" class="-primary" />
+      <Button text="Embedded settings page (Android)" tap="onOpenEmbedded" class="-outline" />
+
+      <Label text="Values read from the native store" class="section" />
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="name_preference" />
+        <Label col="1" text="{{ name_preference || '(empty)' }}" class="value" />
+      </GridLayout>
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="enabled_preference" />
+        <Label col="1" text="{{ enabled_preference }}" class="value" />
+      </GridLayout>
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="theme_preference" />
+        <Label col="1" text="{{ theme_preference }}" class="value" />
+      </GridLayout>
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="volume_preference" />
+        <Label col="1" text="{{ volume_preference }}" class="value" />
+      </GridLayout>
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="analytics_preference" />
+        <Label col="1" text="{{ analytics_preference }}" class="value" />
+      </GridLayout>
+
+      <Label text="Edit the same values in-app (two-way bindings)" class="section" />
+      <TextField hint="Name" text="{{ name_preference }}" returnKeyType="done" />
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="Enabled" verticalAlignment="center" />
+        <Switch col="1" checked="{{ enabled_preference }}" />
+      </GridLayout>
+      <GridLayout columns="*, auto" class="row">
+        <Label col="0" text="Volume" verticalAlignment="center" />
+        <Slider col="1" width="160" minValue="0" maxValue="100" value="{{ volume_preference }}" />
+      </GridLayout>
+
+      <Button text="Reset to defaults" tap="onReset" class="-outline" />
+
+      <Label text="Last change" class="section" />
+      <Label id="lastChange" text="Nothing yet. Change something in the OS settings or above." class="log" textWrap="true" />
+    </StackLayout>
+  </ScrollView>
+</Page>
