@@ -4,6 +4,9 @@
 	"description": "Native app preferences for NativeScript: read and write NSUserDefaults / SharedPreferences, open the OS settings UI, and bind your own screens to the same values.",
 	"main": "index",
 	"typings": "index.d.ts",
+	"bin": {
+		"ns-preferences": "bin/ns-preferences.cjs"
+	},
 	"type": "module",
 	"nativescript": {
 		"platforms": {
@@ -16,13 +19,18 @@
 		"common.js",
 		"index.android.js",
 		"index.ios.js",
-		"platforms/android/include.gradle"
+		"platforms/android/include.gradle",
+		"generator/index.cjs",
+		"bin/ns-preferences.cjs",
+		"hooks/before-prepare.cjs",
+		"preferences.schema.json"
 	],
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"clean": "node -e \"for (const f of ['common.js','index.android.js','index.ios.js','README.md','LICENSE']) require('fs').rmSync(f, { force: true })\"",
-		"prepack": "npm run build && node -e \"const fs=require('fs');fs.copyFileSync('../README.md','README.md');fs.copyFileSync('../LICENSE','LICENSE')\""
+		"prepack": "npm run build && node -e \"const fs=require('fs');fs.copyFileSync('../README.md','README.md');fs.copyFileSync('../LICENSE','LICENSE')\"",
+		"test": "node --test \"test/**/*.test.cjs\""
 	},
 	"repository": {
 		"type": "git",
@@ -37,7 +45,9 @@
 		"PreferenceScreen",
 		"Settings.bundle",
 		"Android",
-		"iOS"
+		"iOS",
+		"Settings.bundle generator",
+		"preferences.xml generator"
 	],
 	"author": {
 		"name": "Steve McNiven-Scott",

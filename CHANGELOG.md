@@ -6,6 +6,7 @@ Rewritten for NativeScript 9.
 
 ### Added
 
+- `preferences.json`: describe the settings once and generate `Settings.bundle` (one plist per screen), `res/xml/preferences.xml`, the string arrays it references and a typed TypeScript module (`interface`, defaults and a shared `Preferences` instance). Ships as the `ns-preferences` CLI (`init`, `generate`, `check`), a `before-prepare` hook for `nativescript.config.ts` and a JSON Schema for editor completion.
 - Typed schema and in-code defaults: `new Preferences<Settings>({ defaults })` gives typed `get`, `set`, `onChange` and never-undefined reads. Defaults are mirrored as bindable properties and registered natively on iOS.
 - `Preferences.shared` singleton, coercing getters (`getString`, `getNumber`, `getBoolean`, `getStringArray`), `has`, `keys`, `getAll`, `remove`, `refresh`, `dispose`.
 - Change events from any source, including the OS settings UI: `on('change')`, `onChange(callback)`, `onChange(key, callback)`.

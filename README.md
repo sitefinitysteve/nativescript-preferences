@@ -6,7 +6,7 @@ Native app preferences for NativeScript 9, with one typed API for both platforms
 - Declare your settings once in TypeScript. Keys and defaults live in code, and `settings.get('volume')` is a `number`.
 - Bind your own screens straight to the store. The instance is an `Observable`, so `{{ volume }}` in XML just works, two-way included.
 - Get change events from any source, including the OS settings UI.
-- Optionally hand the UI to the OS: the app's page in the iOS Settings app, or an AndroidX `PreferenceScreen` on Android.
+- Optionally hand the UI to the OS: the app's page in the iOS Settings app, or an AndroidX `PreferenceScreen` on Android. Describe it once in `preferences.json` and the plist, the XML and the TypeScript schema are generated on every build.
 
 <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-sample.gif" width="200" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-sample.gif" width="200" />
 
@@ -76,7 +76,7 @@ settings.onChange((change) => console.log(change.key, change.oldValue, '->', cha
 stop();
 ```
 
-That is the whole plugin for most apps. Keep reading if you want the operating system to render the settings screen for you.
+That is the whole plugin for most apps. Keep reading if you want the operating system to render the settings screen for you, without writing platform files by hand.
 
 ### Notes on typing
 
@@ -92,14 +92,112 @@ You never have to build a settings UI. Both operating systems can render one fro
 await settings.openSettings();
 ```
 
-The catch is that each OS has its own file format, and neither can be generated from JavaScript at runtime. iOS reads a `Settings.bundle` inside the app, Android inflates a `res/xml` resource. So if you want the OS-rendered screen on both platforms you describe the same settings twice, using the **same keys as your schema**. Your TypeScript stays platform-agnostic; only these two resource files are platform-specific.
+Each OS wants its own file: iOS reads a `Settings.bundle` compiled into the app, Android inflates a `res/xml` resource. Instead of writing both by hand, describe the settings once in `preferences.json` and let the plugin generate the plist, the XML and the TypeScript schema from it on every build.
+
+### 1. Describe the settings once
+
+```bash
+npx ns-preferences init
+```
+
+This creates a starter `preferences.json` in the project root. The `$schema` line gives you autocompletion and validation in VS Code and other editors.
+
+```json
+{
+  "$schema": "node_modules/nativescript-preferences/preferences.schema.json",
+  "output": { "typescript": "app/settings.generated.ts" },
+  "items": [
+    {
+      "type": "group",
+      "title": "General",
+      "items": [
+        { "key": "name", "type": "text", "title": "Name", "default": "" },
+        { "key": "enabled", "type": "toggle", "title": "Enabled", "summary": "Turns the thing on", "default": true },
+        {
+          "key": "theme", "type": "list", "title": "Theme", "default": "system",
+          "options": [{ "value": "system", "title": "Follow system" }, "light", "dark"]
+        },
+        { "key": "volume", "type": "slider", "title": "Volume", "default": 50, "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "type": "screen", "key": "advanced", "title": "Advanced",
+      "items": [{ "key": "analytics", "type": "toggle", "title": "Share anonymous analytics", "default": false }]
+    }
+  ]
+}
+```
+
+### 2. Generate on every build
+
+Add the hook to `nativescript.config.ts`:
+
+```ts
+export default {
+  // ...
+  hooks: [{ type: 'before-prepare', script: 'node_modules/nativescript-preferences/hooks/before-prepare.cjs' }],
+} as NativeScriptConfig;
+```
+
+Every `ns run`, `ns build` and `ns prepare` now regenerates, for the platform being built:
+
+| Output | Path |
+| --- | --- |
+| iOS Settings.bundle, one plist per screen | `App_Resources/iOS/Settings.bundle/Root.plist`, `<screenKey>.plist` |
+| AndroidX preference screen | `App_Resources/Android/src/main/res/xml/preferences.xml` |
+| Android string arrays for lists | `App_Resources/Android/src/main/res/values/preferences_arrays.xml` |
+| Typed schema, defaults and a shared instance | `output.typescript`, when set |
+
+Files are only rewritten when their content changes, so the hook does not trigger needless native rebuilds. Generated files carry a "Do not edit" header. Commit them, or add them to `.gitignore`; both work because the hook regenerates before every build.
+
+You can also run it by hand, for example while `ns run` is watching, or in CI to fail when someone edited a generated file:
+
+```bash
+npx ns-preferences generate   # write everything now
+npx ns-preferences check      # exit 1 if any generated file is out of date
+```
+
+### 3. Use the generated module
+
+With `output.typescript` set you do not write the `Settings` interface from the quick start yourself:
+
+```ts
+import { settings } from './settings.generated';
+
+settings.get('theme');   // 'system' | 'light' | 'dark', from the list options
+settings.set('volume', 80);
+await settings.openSettings();
+```
+
+The module exports the interface (`AppSettings`), the defaults (`settingsDefaults`) and a ready `Preferences` instance (`settings`). Rename them with `output.interfaceName` and `output.exportName`.
+
+### Item types
+
+Every item except `group` has a `key`, which is the storage key and must be unique. `title` and `summary` are optional everywhere; iOS shows a `summary` only on groups (as footer text).
+
+| `type` | Stores | iOS | Android | Extra fields |
+| --- | --- | --- | --- | --- |
+| `group` | nothing | `PSGroupSpecifier` | `PreferenceCategory` | `items` (no nested groups) |
+| `screen` | nothing | `PSChildPaneSpecifier` + own plist | nested `PreferenceScreen` | `items` |
+| `text` | `string` | `PSTextFieldSpecifier` | `EditTextPreference` | `default`, `secure`, `keyboard`, `autocapitalize`, `autocorrect` (the last four are iOS only) |
+| `toggle` | `boolean` | `PSToggleSwitchSpecifier` | `SwitchPreferenceCompat` | `default` |
+| `list` | one option value | `PSMultiValueSpecifier` | `ListPreference` | `options`, `default` |
+| `multilist` | `string[]` | not rendered (iOS has no control for it) | `MultiSelectListPreference` | `options`, `default` |
+| `slider` | integer `number` | `PSSliderSpecifier` (no title on iOS) | `SeekBarPreference` | `default`, `min`, `max`, `step` |
+| `label` | nothing | `PSTitleValueSpecifier` | non-selectable `Preference` | `value` |
+
+`options` entries are either plain strings or `{ "value", "title" }`. Defaults are validated against the options, sliders against `min` and `max`.
+
+### Writing the platform files by hand
+
+The generator is optional. Hand-written files keep working as before, and you can mix: skip the hook and write `preferences.xml` yourself, or ship only the iOS bundle and build your own Android screen with bindings.
 
 | | File | Docs | Example |
 | --- | --- | --- | --- |
 | iOS | `App_Resources/iOS/Settings.bundle/Root.plist` | [Apple](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/UserDefaults/Preferences/Preferences.html) | [demo](demo/App_Resources/iOS/Settings.bundle/Root.plist) |
 | Android | `App_Resources/Android/src/main/res/xml/preferences.xml` | [AndroidX Preference](https://developer.android.com/develop/ui/views/components/settings) | [demo](demo/App_Resources/Android/src/main/res/xml/preferences.xml) |
 
-Both are optional and independent. Ship only the iOS bundle and build your own Android screen with bindings, or the other way round. Without the file, `openSettings()` still opens your app's entry in the iOS Settings app (it then lists only system permissions), and rejects with a clear error on Android.
+Use the same keys as your schema. Without the file, `openSettings()` still opens your app's entry in the iOS Settings app (it then lists only system permissions), and rejects with a clear error on Android.
 
 **iOS**: `PSChildPaneSpecifier` child panes are supported. The `DefaultValue` entries are registered on every launch so reads fall back to them.
 
@@ -205,6 +303,16 @@ A key that clashes with a member of the class (for example `set` or `keys`) is s
 | `navigateToScreen` event | Raised with `{ key, title, handled }` when a nested screen is tapped. |
 | `static isSupported` | `true` on Android, `false` on iOS. |
 
+### `ns-preferences` CLI
+
+| Command | Description |
+| --- | --- |
+| `ns-preferences init` | Create a starter `preferences.json` and print the hook to add to `nativescript.config.ts`. |
+| `ns-preferences generate` | Write the Settings.bundle, `preferences.xml`, string arrays and TypeScript module. |
+| `ns-preferences check` | Exit with code 1 when any generated file is out of date. |
+
+Options: `--config <file>` (default `preferences.json`), `--project <dir>`, `--app-resources <dir>`, `--platform ios|android`. The build hook at `hooks/before-prepare.cjs` runs `generate` for the platform being prepared and is a no-op in projects without a `preferences.json`.
+
 ## Migrating from 1.x
 
 Version 2 is a rewrite with a new API. The `Settings.bundle` and `preferences.xml` files you already have keep working, with one Android change noted below.
@@ -229,6 +337,7 @@ Android specifics:
 
 ```bash
 npm run build          # compile src/
+npm test               # generator tests (node:test)
 npm run demo.install   # install the demo app, linked to src/
 npm run demo.ios
 npm run demo.android

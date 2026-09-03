@@ -10,6 +10,7 @@
 		"demo.build": "npm --prefix demo run build.android && npm --prefix demo run build.ios",
 		"demo.android": "cd demo && ns run android",
 		"demo.ios": "cd demo && ns run ios",
-		"demo.clean": "cd demo && ns clean"
+		"demo.clean": "cd demo && ns clean",
+		"test": "npm --prefix src install && npm --prefix src test"
 	}
 }

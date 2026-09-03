@@ -20,6 +20,10 @@ jobs:
         working-directory: src
       - run: npm run build
         working-directory: src
+      - run: npm test
+        working-directory: src
+      - run: node bin/ns-preferences.cjs check --project ../demo
+        working-directory: src
       - run: npm pack --dry-run
         working-directory: src
 

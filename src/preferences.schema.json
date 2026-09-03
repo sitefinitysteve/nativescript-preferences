@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/sitefinitysteve/nativescript-preferences/preferences.schema.json",
+  "title": "nativescript-preferences settings description",
+  "description": "One description of your app's settings. nativescript-preferences turns it into an iOS Settings.bundle, an Android PreferenceScreen and a typed TypeScript module.",
+  "type": "object",
+  "required": ["items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "title": { "type": "string", "description": "Title of the settings screen. Informational." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ios": { "type": "string", "description": "Settings.bundle directory, relative to the project. Default: App_Resources/iOS/Settings.bundle" },
+        "android": { "type": "string", "description": "Android res directory, relative to the project. Default: App_Resources/Android/src/main/res" },
+        "androidResource": { "type": "string", "description": "Name of the generated res/xml file. Default: preferences" },
+        "typescript": { "type": "string", "description": "Path of the generated TypeScript module, relative to the project. Omit to skip it." },
+        "interfaceName": { "type": "string", "description": "Name of the generated interface. Default: AppSettings" },
+        "exportName": { "type": "string", "description": "Name of the generated Preferences instance. Default: settings" }
+      }
+    },
+    "items": { "type": "array", "items": { "$ref": "#/definitions/item" } }
+  },
+  "definitions": {
+    "option": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["value"],
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "string", "description": "Stored value." },
+            "title": { "type": "string", "description": "Text shown to the user. Defaults to the value." }
+          }
+        }
+      ]
+    },
+    "key": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "description": "Storage key. Must be unique across the whole file." },
+    "item": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "group" },
+            "title": { "type": "string" },
+            "summary": { "type": "string", "description": "Footer text under the group (iOS) or category summary (Android)." },
+            "items": { "type": "array", "items": { "$ref": "#/definitions/item" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key", "title", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "screen" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "items": { "type": "array", "items": { "$ref": "#/definitions/item" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "text" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "default": { "type": "string", "default": "" },
+            "secure": { "type": "boolean", "description": "Password field (iOS)." },
+            "keyboard": { "enum": ["default", "email", "number", "decimal", "phone", "url"], "description": "Keyboard type (iOS)." },
+            "autocapitalize": { "enum": ["none", "sentences", "words", "characters"], "description": "Autocapitalization (iOS)." },
+            "autocorrect": { "type": "boolean", "description": "Autocorrection (iOS)." }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "toggle" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "default": { "type": "boolean", "default": false }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key", "options"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "list" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "default": { "type": "string", "description": "One of the option values." },
+            "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/option" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key", "options"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "multilist" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "default": { "type": "array", "items": { "type": "string" }, "description": "Option values selected by default." },
+            "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/option" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "slider" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string", "description": "Shown on Android. iOS sliders have no title; use a group title." },
+            "summary": { "type": "string" },
+            "default": { "type": "integer" },
+            "min": { "type": "integer", "default": 0 },
+            "max": { "type": "integer", "default": 100 },
+            "step": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "key", "title"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "label" },
+            "key": { "$ref": "#/definitions/key" },
+            "title": { "type": "string" },
+            "value": { "type": "string", "description": "Read-only text shown next to the title." }
+          }
+        }
+      ]
+    }
+  }
+}
