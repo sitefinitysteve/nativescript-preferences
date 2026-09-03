@@ -21,20 +21,41 @@
       "additionalProperties": false,
       "properties": {
         "ios": {
-          "type": "string",
-          "description": "Settings.bundle directory, relative to the project. Default: App_Resources/iOS/Settings.bundle"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": false
+            }
+          ],
+          "description": "Settings.bundle directory, relative to the project, or false to keep writing it by hand. Default: App_Resources/iOS/Settings.bundle"
         },
         "android": {
-          "type": "string",
-          "description": "Android res directory, relative to the project. Default: App_Resources/Android/src/main/res"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": false
+            }
+          ],
+          "description": "Android res directory, relative to the project, or false to keep writing preferences.xml by hand. Default: App_Resources/Android/src/main/res"
         },
         "androidResource": {
           "type": "string",
           "description": "Name of the generated res/xml file. Default: preferences"
         },
         "typescript": {
-          "type": "string",
-          "description": "Path of the generated TypeScript module, relative to the project. Omit to skip it."
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": false
+            }
+          ],
+          "description": "Path of the generated TypeScript module, relative to the project. Omit or set false to skip it."
         },
         "interfaceName": {
           "type": "string",

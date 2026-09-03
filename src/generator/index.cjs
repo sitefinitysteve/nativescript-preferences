@@ -56,13 +56,19 @@ function normalizeConfig(json) {
 		throw new PreferencesConfigError('"items" must be an array.');
 	}
 	const output = Object.assign({}, DEFAULT_OUTPUT, json.output || {});
-	for (const field of ['ios', 'android', 'androidResource', 'interfaceName', 'exportName']) {
+	for (const field of ['androidResource', 'interfaceName', 'exportName']) {
 		if (typeof output[field] !== 'string' || !output[field]) {
 			throw new PreferencesConfigError(`"output.${field}" must be a non-empty string.`);
 		}
 	}
-	if (output.typescript !== undefined && (typeof output.typescript !== 'string' || !output.typescript)) {
-		throw new PreferencesConfigError('"output.typescript" must be a non-empty string when set.');
+	// `false` switches an output off entirely, for people who maintain that file by hand.
+	for (const field of ['ios', 'android']) {
+		if (output[field] !== false && (typeof output[field] !== 'string' || !output[field])) {
+			throw new PreferencesConfigError(`"output.${field}" must be a path or false.`);
+		}
+	}
+	if (output.typescript !== undefined && output.typescript !== false && (typeof output.typescript !== 'string' || !output.typescript)) {
+		throw new PreferencesConfigError('"output.typescript" must be a path or false when set.');
 	}
 	const seenKeys = new Map();
 	const items = json.items.map((item, index) => normalizeItem(item, `items[${index}]`, seenKeys, 0));
@@ -744,15 +750,30 @@ function renderTypeScript(config) {
 
 // Writing ----------------------------------------------------------------------------------------
 
-function writeIfChanged(file, content, result) {
-	let existing;
+function readIfExists(file) {
 	try {
-		existing = fs.readFileSync(file, 'utf8');
+		return fs.readFileSync(file, 'utf8');
 	} catch (error) {
-		existing = undefined;
+		return undefined;
 	}
+}
+
+/**
+ * A file that exists without the generated header was written or edited by a person. It is left
+ * alone unless `force` is set, so a hand-tuned plist or XML never disappears under a build.
+ */
+function isHandWritten(existing) {
+	return existing !== undefined && !existing.includes(GENERATED_MARKER);
+}
+
+function writeIfChanged(file, content, result, force) {
+	const existing = readIfExists(file);
 	if (existing === content) {
 		result.unchanged.push(file);
+		return;
+	}
+	if (isHandWritten(existing) && !force) {
+		result.skipped.push(file);
 		return;
 	}
 	fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -794,6 +815,10 @@ function pruneStalePlists(bundleDir, keep, result) {
  * @param options.appResourcesDir  Absolute `App_Resources` path. Defaults to `<projectDir>/App_Resources`.
  * @param options.platforms        Subset of `['ios', 'android']`. Defaults to both.
  * @param options.check            Report what would change without writing anything.
+ * @param options.force            Overwrite files that lack the generated header (hand-written or hand-edited).
+ *
+ * Returns `{ written, unchanged, skipped, removed, warnings }`. `skipped` lists hand-written files
+ * that were left alone.
  */
 function generate(config, options) {
 	const projectDir = path.resolve(options.projectDir || process.cwd());
@@ -811,13 +836,13 @@ function generate(config, options) {
 	};
 
 	let iosDir;
-	if (platforms.includes('ios')) {
+	if (platforms.includes('ios') && config.output.ios !== false) {
 		iosDir = resolveOutput(config.output.ios, DEFAULT_OUTPUT.ios);
 		for (const [name, content] of renderIos(config, warnings)) {
 			outputs.set(path.join(iosDir, name), content);
 		}
 	}
-	if (platforms.includes('android')) {
+	if (platforms.includes('android') && config.output.android !== false) {
 		const resDir = resolveOutput(config.output.android, DEFAULT_OUTPUT.android);
 		for (const [name, content] of renderAndroid(config)) {
 			outputs.set(path.join(resDir, name), content);
@@ -827,21 +852,22 @@ function generate(config, options) {
 		outputs.set(path.resolve(projectDir, config.output.typescript), renderTypeScript(config));
 	}
 
-	const result = { written: [], unchanged: [], removed: [], warnings };
+	const result = { written: [], unchanged: [], skipped: [], removed: [], warnings };
 	if (options.check) {
 		for (const [file, content] of outputs) {
-			let existing;
-			try {
-				existing = fs.readFileSync(file, 'utf8');
-			} catch (error) {
-				existing = undefined;
+			const existing = readIfExists(file);
+			if (existing === content) {
+				result.unchanged.push(file);
+			} else if (isHandWritten(existing) && !options.force) {
+				result.skipped.push(file);
+			} else {
+				result.written.push(file);
 			}
-			(existing === content ? result.unchanged : result.written).push(file);
 		}
 		return result;
 	}
 	for (const [file, content] of outputs) {
-		writeIfChanged(file, content, result);
+		writeIfChanged(file, content, result, options.force);
 	}
 	if (iosDir) {
 		pruneStalePlists(iosDir, new Set(Array.from(outputs.keys()).filter((file) => path.dirname(file) === iosDir).map((file) => path.basename(file))), result);
