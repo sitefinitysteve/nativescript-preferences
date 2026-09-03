@@ -90,16 +90,16 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 	const config = generator.normalizeConfig({
 		items: [
 			{ key: 'dark', type: 'toggle', title: 'Dark', default: false, ios: { Title: 'Dark mode' }, android: { widget: 'CheckBoxPreference', 'android:icon': '@drawable/ic_dark', 'app:iconSpaceReserved': null } },
-			{ key: 'theme', type: 'list', title: 'Theme', default: 'a', options: ['a', 'b'], ios: { specifier: 'PSRadioGroupSpecifier' }, android: { widget: 'DropDownPreference' } },
+			{ key: 'theme', type: 'list', title: 'Theme', default: 'a', options: ['a', 'b'], ios: { widget: 'PSRadioGroupSpecifier' }, android: { widget: 'DropDownPreference' } },
 			{ key: 'secret', type: 'text', title: 'Secret', default: '', ios: false },
-			{ key: 'tags', type: 'multilist', title: 'Tags', options: ['x', 'y'], ios: { specifier: 'PSMultiValueSpecifier' } },
+			{ key: 'tags', type: 'multilist', title: 'Tags', options: ['x', 'y'], ios: { widget: 'PSMultiValueSpecifier' } },
 			{ type: 'screen', key: 'adv', title: 'Advanced', ios: false, items: [{ key: 'z', type: 'toggle', default: true, android: false }] },
 		],
 	});
 	const warnings = [];
 	const ios = generator.renderIos(config, warnings);
 	assert.deepEqual(Array.from(ios.keys()), ['Root.plist'], 'a screen hidden on iOS gets no plist');
-	assert.equal(warnings.length, 0, 'an explicit specifier silences the multilist warning');
+	assert.equal(warnings.length, 0, 'an explicit iOS widget silences the multilist warning');
 	const root = ios.get('Root.plist');
 	assert.match(root, /PSToggleSwitchSpecifier[\s\S]*?<key>Title<\/key>\s*<string>Dark mode<\/string>/);
 	assert.match(root, /<string>PSRadioGroupSpecifier<\/string>\s*<key>Key<\/key>\s*<string>theme<\/string>/);
@@ -116,7 +116,8 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 	assert.match(ts, /secret: string;[\s\S]*z: boolean;/, 'hidden items are still stored and typed');
 
 	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', ios: 'nope' }] }), /items\[0\]\.ios must be false or an object/);
-	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', android: { widget: '' } }] }), /android\.widget must be a non-empty string/);
+	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', android: { widget: '' } }] }), /android\.widget must be a non-empty string such as "CheckBoxPreference"/);
+	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', ios: { widget: 7 } }] }), /ios\.widget must be a non-empty string such as "PSRadioGroupSpecifier"/);
 	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', android: { 'android:icon': { x: 1 } } }] }), /android\.android:icon must be a string, number, boolean or null/);
 });
 

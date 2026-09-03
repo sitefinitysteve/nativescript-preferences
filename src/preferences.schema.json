@@ -426,7 +426,7 @@
       ]
     },
     "iosOverride": {
-      "description": "iOS override. false hides the item in Settings.bundle. An object is merged into the generated specifier: \"specifier\" swaps the control type (for example PSRadioGroupSpecifier), any other key is written to the plist as-is, null removes a key the generator would have written.",
+      "description": "iOS override. false hides the item in Settings.bundle. An object is merged into the generated specifier: \"widget\" swaps the control (PSToggleSwitchSpecifier, PSTextFieldSpecifier, PSMultiValueSpecifier, PSRadioGroupSpecifier, PSSliderSpecifier, PSTitleValueSpecifier), any other key is written to the plist as-is, null removes a key the generator would have written.",
       "oneOf": [
         {
           "const": false
@@ -434,8 +434,16 @@
         {
           "type": "object",
           "properties": {
-            "specifier": {
-              "type": "string"
+            "widget": {
+              "type": "string",
+              "examples": [
+                "PSToggleSwitchSpecifier",
+                "PSTextFieldSpecifier",
+                "PSMultiValueSpecifier",
+                "PSRadioGroupSpecifier",
+                "PSSliderSpecifier",
+                "PSTitleValueSpecifier"
+              ]
             }
           },
           "additionalProperties": {
@@ -464,7 +472,7 @@
       ]
     },
     "androidOverride": {
-      "description": "Android override. false hides the item in preferences.xml. An object is merged into the generated element: \"widget\" swaps the element (for example CheckBoxPreference or DropDownPreference), any other key is an XML attribute such as \"android:icon\", null removes an attribute the generator would have written.",
+      "description": "Android override. false hides the item in preferences.xml. An object is merged into the generated element: \"widget\" swaps the preference class (CheckBoxPreference, SwitchPreferenceCompat, EditTextPreference, ListPreference, DropDownPreference, MultiSelectListPreference, SeekBarPreference, or a fully qualified custom class), any other key is an XML attribute such as \"android:icon\", null removes an attribute the generator would have written.",
       "oneOf": [
         {
           "const": false
@@ -473,7 +481,16 @@
           "type": "object",
           "properties": {
             "widget": {
-              "type": "string"
+              "type": "string",
+              "examples": [
+                "CheckBoxPreference",
+                "SwitchPreferenceCompat",
+                "EditTextPreference",
+                "ListPreference",
+                "DropDownPreference",
+                "MultiSelectListPreference",
+                "SeekBarPreference"
+              ]
             }
           },
           "additionalProperties": {

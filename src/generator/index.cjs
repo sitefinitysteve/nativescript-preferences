@@ -215,8 +215,10 @@ function normalizeItem(item, where, seenKeys, depth) {
 
 /**
  * Per-platform override: `false` hides the item on that platform, an object is merged into the
- * generated control. `ios.specifier` / `android.widget` swap the control type; every other entry is
- * a raw plist key or XML attribute, and `null` removes one the generator would have written.
+ * generated control. `widget` swaps the control type (an iOS specifier such as
+ * `PSRadioGroupSpecifier`, or an Android preference class such as `CheckBoxPreference`); every
+ * other entry is a raw plist key or XML attribute, and `null` removes one the generator would have
+ * written.
  */
 function normalizeOverride(override, where, platform) {
 	if (override === false) {
@@ -228,20 +230,17 @@ function normalizeOverride(override, where, platform) {
 	const result = {};
 	for (const name of Object.keys(override)) {
 		const value = override[name];
-		if (platform === 'ios') {
-			if (name === 'specifier') {
-				if (typeof value !== 'string' || !value) {
-					throw new PreferencesConfigError(`${where}.specifier must be a non-empty string such as "PSRadioGroupSpecifier".`);
-				}
-			} else if (value !== null && !isPlistValue(value)) {
+		if (name === 'widget') {
+			const example = platform === 'ios' ? 'PSRadioGroupSpecifier' : 'CheckBoxPreference';
+			if (typeof value !== 'string' || !value) {
+				throw new PreferencesConfigError(`${where}.widget must be a non-empty string such as "${example}".`);
+			}
+		} else if (platform === 'ios') {
+			if (value !== null && !isPlistValue(value)) {
 				throw new PreferencesConfigError(`${where}.${name} must be a string, number, boolean, array of strings or null.`);
 			}
 		} else {
-			if (name === 'widget') {
-				if (typeof value !== 'string' || !value) {
-					throw new PreferencesConfigError(`${where}.widget must be a non-empty string such as "CheckBoxPreference".`);
-				}
-			} else if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
+			if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
 				throw new PreferencesConfigError(`${where}.${name} must be a string, number, boolean or null.`);
 			}
 		}
@@ -369,7 +368,7 @@ function iosSpecifiers(item, warnings) {
 		return [];
 	}
 	const override = item.ios || {};
-	if (item.type === 'multilist' && !override.specifier) {
+	if (item.type === 'multilist' && !override.widget) {
 		warnings.push(`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API.`);
 		return [];
 	}
@@ -378,7 +377,7 @@ function iosSpecifiers(item, warnings) {
 		return specifiers;
 	}
 	// Overrides apply to the item's own specifier, which is always the first one emitted.
-	specifiers[0] = applyOverrides(specifiers[0], override, 'specifier', 'Type');
+	specifiers[0] = applyOverrides(specifiers[0], override, 'widget', 'Type');
 	return specifiers;
 }
 
@@ -453,7 +452,7 @@ function iosBaseSpecifiers(item, warnings) {
 				],
 			];
 		case 'multilist':
-			// Only reached with an explicit `ios.specifier`; the data shape matches PSMultiValueSpecifier.
+			// Only reached with an explicit `ios.widget`; the data shape matches PSMultiValueSpecifier.
 			return [
 				[
 					['Type', 'PSMultiValueSpecifier'],
