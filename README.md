@@ -21,25 +21,51 @@ npx ns-preferences init
 ```json
 {
   "$schema": "node_modules/nativescript-preferences/preferences.schema.json",
-  "output": { "typescript": "app/settings.generated.ts" },
+  "output": {
+    "typescript": "app/settings.generated.ts"
+  },
   "items": [
     {
       "type": "group",
       "title": "General",
       "items": [
-        { "key": "name", "type": "text", "title": "Name", "default": "" },
-        { "key": "enabled", "type": "toggle", "title": "Enabled", "summary": "Turns the thing on", "default": true },
         {
-          "key": "theme", "type": "list", "title": "Theme", "default": "system",
-          "options": [{ "value": "system", "title": "Follow system" }, "light", "dark"]
+          "key": "name",
+          "type": "text",
+          "title": "Name",
+          "default": ""
         },
-        { "key": "volume", "type": "slider", "title": "Volume", "default": 50, "min": 0, "max": 100 }
+        {
+          "key": "enabled",
+          "type": "toggle",
+          "title": "Enabled",
+          "summary": "Turns the thing on",
+          "default": true
+        },
+        {
+          "key": "theme",
+          "type": "list",
+          "title": "Theme",
+          "default": "system",
+          "options": [
+            { "value": "system", "title": "Follow system" },
+            { "value": "light", "title": "Light" },
+            { "value": "dark", "title": "Dark" }
+          ]
+        },
+        {
+          "key": "volume",
+          "type": "slider",
+          "title": "Volume",
+          "default": 50,
+          "min": 0,
+          "max": 100
+        }
       ]
     }
   ]
 }
 ```
-
 Then use them anywhere. No platform code, no `if (isIOS)`:
 
 ```ts
@@ -107,19 +133,64 @@ Every item takes optional `ios` and `android` objects. Set either to `false` to 
 
 ```json
 {
-  "key": "theme", "type": "list", "title": "Theme", "default": "system", "options": ["system", "light", "dark"],
-  "ios": { "widget": "PSRadioGroupSpecifier" },
-  "android": { "widget": "DropDownPreference", "android:icon": "@drawable/ic_theme", "app:iconSpaceReserved": null }
+  "key": "theme",
+  "type": "list",
+  "title": "Theme",
+  "default": "system",
+  "options": ["system", "light", "dark"],
+  "ios": {
+    "widget": "PSRadioGroupSpecifier"
+  },
+  "android": {
+    "widget": "DropDownPreference",
+    "android:icon": "@drawable/ic_theme",
+    "app:iconSpaceReserved": null
+  }
 }
 ```
 
+A checkbox instead of a switch on Android:
+
 ```json
-{ "key": "dark", "type": "toggle", "title": "Dark", "default": false, "android": { "widget": "CheckBoxPreference" } }
-{ "key": "debug", "type": "toggle", "title": "Debug logging", "default": false, "ios": false }
-{ "key": "tags", "type": "multilist", "options": ["news", "offers"], "ios": { "widget": "PSMultiValueSpecifier" } }
+{
+  "key": "dark",
+  "type": "toggle",
+  "title": "Dark",
+  "default": false,
+  "android": {
+    "widget": "CheckBoxPreference"
+  }
+}
 ```
 
-The last one is how you opt a `multilist` into iOS anyway: the option arrays fit `PSMultiValueSpecifier`, so the user picks one value on iOS and several on Android.
+Hidden from the iOS Settings app, still stored and typed:
+
+```json
+{
+  "key": "debug",
+  "type": "toggle",
+  "title": "Debug logging",
+  "default": false,
+  "ios": false
+}
+```
+
+A `multilist` rendered on iOS as a single-choice picker:
+
+```json
+{
+  "key": "tags",
+  "type": "multilist",
+  "title": "Tags",
+  "default": [],
+  "options": ["news", "offers"],
+  "ios": {
+    "widget": "PSMultiValueSpecifier"
+  }
+}
+```
+
+That last one works because the option arrays fit `PSMultiValueSpecifier`; the user picks one value on iOS and several on Android.
 
 Widgets you can name, grouped by the data they store. Any control with the same data shape as the item's default is a safe swap.
 
@@ -144,7 +215,12 @@ The generator has defaults, not opinions. Three ways to take over, from finest t
 - **Stop generating one output.** Set it to `false` in `preferences.json` and write that file yourself, while the others stay generated:
 
   ```json
-  "output": { "android": false, "typescript": "app/settings.generated.ts" }
+  {
+    "output": {
+      "android": false,
+      "typescript": "app/settings.generated.ts"
+    }
+  }
   ```
 
 - **Skip or remove the hook.** `NS_PREFERENCES_SKIP=1 ns run ios` skips generation for one build. Removing the `hooks` entry from `nativescript.config.ts` turns it off for good; `npx ns-preferences generate` still works on demand.
