@@ -14,8 +14,6 @@ await settings.openSettings();   // the OS draws the screen
 - **Live everywhere.** Change a value in the OS settings, in your code, or through a two-way binding, and everything else updates.
 - **Native UI for free.** iOS gets a page in the Settings app, Android gets an AndroidX `PreferenceScreen`. Or bind your own screen to the same instance.
 
-<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-sample.gif" width="200" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-sample.gif" width="200" />
-
 ## Quick start
 
 ```bash
