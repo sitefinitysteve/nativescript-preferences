@@ -12,7 +12,7 @@ nativescript-preferences 2.0 is a rewrite for NativeScript 9 around one idea: de
 - **Live and bindable.** Change events from any source, including the OS settings UI. The instance is an `Observable`, so it works as a `bindingContext` with two-way bindings.
 - **Per-platform overrides when you want them.** Swap a control (`"android": { "widget": "CheckBoxPreference" }`), add raw attributes, or hide an item on one platform with `false`.
 
-Install with `ns plugin add nativescript-preferences`, then `npx ns-preferences init`. The README has the full walkthrough and a migration table from 1.x.
+Install with `ns plugin add nativescript-preferences`, then `npx ns-preferences init`. The README has the full walkthrough. Existing `Settings.bundle` and `preferences.xml` files keep working and are never overwritten; `getValue` / `setValue` from 1.x become `get` / `set`.
 
 ### Added
 
