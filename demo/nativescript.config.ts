@@ -6,6 +6,7 @@ export default {
   appResourcesPath: 'App_Resources',
   bundler: 'vite',
   bundlerConfigPath: 'vite.config.mts',
+  hooks: [{ type: 'before-prepare', script: 'node_modules/nativescript-preferences/hooks/before-prepare.cjs' }],
   android: {
     v8Flags: '--expose_gc',
     markingMode: 'none',

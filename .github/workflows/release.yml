@@ -1,0 +1,50 @@
+name: Release
+
+# Pushing a tag such as v2.0.0 tests and builds the plugin, then publishes a GitHub release whose
+# notes are the matching CHANGELOG.md section, with the npm tarball attached.
+#
+#   npm --prefix src version 2.0.0 --no-git-tag-version   # or edit src/package.json
+#   git commit -am "Release 2.0.0" && git tag v2.0.0 && git push origin master v2.0.0
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+      - run: npm ci
+        working-directory: src
+      - run: npm test
+        working-directory: src
+      - run: npm run build
+        working-directory: src
+      - name: Check that the tag matches src/package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./src/package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag v$TAG does not match src/package.json version $PKG" >&2
+            exit 1
+          fi
+      - run: npm pack --pack-destination ..
+        working-directory: src
+      - name: Extract release notes from CHANGELOG.md
+        run: node scripts/release-notes.cjs "$GITHUB_REF_NAME" > release-notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: nativescript-preferences-*.tgz
+          prerelease: ${{ contains(github.ref_name, '-') }}

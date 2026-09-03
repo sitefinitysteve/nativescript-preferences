@@ -1,5 +1,5 @@
 import { Dialogs, EventData, Frame, Label, Page } from '@nativescript/core';
-import { settings } from './settings';
+import { settings } from './settings.generated';
 
 export function navigatingTo(args: EventData) {
   const page = <Page>args.object;
@@ -14,7 +14,7 @@ export function navigatingTo(args: EventData) {
   });
   page.once(Page.unloadedEvent, unsubscribe);
 
-  // Typed reads: `volume` is a number and `theme` is one of the declared literals.
+  // Typed reads: the interface and defaults come from preferences.json via settings.generated.ts.
   const volume: number = settings.get('volume_preference');
   console.log(`Starting with volume ${volume} and theme ${settings.get('theme_preference')}`);
 }

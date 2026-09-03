@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/nativescript-preferences/preferences.schema.json",
+  "output": {
+    "typescript": "app/settings.generated.ts",
+    "interfaceName": "DemoSettings"
+  },
+  "items": [
+    {
+      "type": "group",
+      "title": "General",
+      "items": [
+        { "key": "name_preference", "type": "text", "title": "Name", "default": "", "autocapitalize": "words", "autocorrect": false },
+        { "key": "enabled_preference", "type": "toggle", "title": "Enabled", "summary": "Turns the thing on", "default": true },
+        {
+          "key": "theme_preference",
+          "type": "list",
+          "title": "Theme",
+          "default": "system",
+          "options": [
+            { "value": "system", "title": "Follow system" },
+            { "value": "light", "title": "Light" },
+            { "value": "dark", "title": "Dark" }
+          ]
+        },
+        { "key": "volume_preference", "type": "slider", "title": "Volume", "default": 50, "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "type": "screen",
+      "key": "advanced_screen",
+      "title": "Advanced",
+      "summary": "Diagnostics and privacy",
+      "items": [
+        { "key": "analytics_preference", "type": "toggle", "title": "Share anonymous analytics", "default": false }
+      ]
+    }
+  ]
+}

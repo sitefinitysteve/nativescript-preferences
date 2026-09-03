@@ -1,6 +1,6 @@
 import { EventData, Frame, Page } from '@nativescript/core';
 import { PreferenceScreenEventData } from 'nativescript-preferences';
-import { settings } from './settings';
+import { settings } from './settings.generated';
 
 export function navigatingTo(args: EventData) {
   const page = <Page>args.object;
