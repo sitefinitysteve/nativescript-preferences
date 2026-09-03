@@ -1,11 +1,12 @@
 # nativescript-preferences
 
-Native app preferences for NativeScript 9.
+Native app preferences for NativeScript 9, with one typed API for both platforms.
 
-- Read and write the store the operating system uses for your app: `NSUserDefaults` on iOS, the default `SharedPreferences` on Android.
-- Send users to the OS-provided settings UI instead of building your own: the app's page in the iOS Settings app, or an AndroidX `PreferenceScreen` rendered from `res/xml/preferences.xml`.
-- Keep your own screens in sync with the same values through change events and NativeScript bindings, so a setting can live in the OS UI and in-app at the same time.
-- Typed keys and in-code defaults, so `settings.get('volume')` is a `number` and never `undefined`.
+- Read and write the store the operating system already keeps for your app: `NSUserDefaults` on iOS, the default `SharedPreferences` on Android.
+- Declare your settings once in TypeScript. Keys and defaults live in code, and `settings.get('volume')` is a `number`.
+- Bind your own screens straight to the store. The instance is an `Observable`, so `{{ volume }}` in XML just works, two-way included.
+- Get change events from any source, including the OS settings UI.
+- Optionally hand the UI to the OS: the app's page in the iOS Settings app, or an AndroidX `PreferenceScreen` on Android.
 
 <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-sample.gif" width="200" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-sample.gif" width="200" />
 
@@ -15,59 +16,43 @@ Native app preferences for NativeScript 9.
 ns plugin add nativescript-preferences
 ```
 
-Requires `@nativescript/core` 9 or newer. No native code to build: Android pulls `androidx.preference:preference` through the plugin's `include.gradle`.
+Requires `@nativescript/core` 9 or newer. There is no native code to build and nothing to add to `Info.plist` or `AndroidManifest.xml`. Android pulls `androidx.preference:preference` through the plugin's `include.gradle`.
 
-## Describe your settings
+## Quick start
 
-Both platforms describe preferences declaratively. Use the same keys on both so your code stays platform-agnostic.
+Everything below is platform-agnostic. No plist, no XML, no `if (isIOS)`.
 
-**iOS**: add `App_Resources/iOS/Settings.bundle/Root.plist` ([Apple docs](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/UserDefaults/Preferences/Preferences.html), [demo](demo/App_Resources/iOS/Settings.bundle/Root.plist)). Child panes (`PSChildPaneSpecifier`) are supported.
-
-**Android**: add `App_Resources/Android/src/main/res/xml/preferences.xml` ([AndroidX Preference docs](https://developer.android.com/develop/ui/views/components/settings), [demo](demo/App_Resources/Android/src/main/res/xml/preferences.xml)). Use the AndroidX widgets (`SwitchPreferenceCompat`, `EditTextPreference`, `ListPreference`, `SeekBarPreference`, `MultiSelectListPreference`, nested `PreferenceScreen`).
-
-## Usage
-
-Declare the schema once, with the same keys as your plist and XML, and share the instance across the app.
+**1. Declare your settings once.** One file, one instance, shared across the app.
 
 ```ts
 // settings.ts
 import { Preferences } from 'nativescript-preferences';
 
 export interface Settings {
-  name_preference: string;
-  enabled_preference: boolean;
-  theme_preference: 'system' | 'light' | 'dark';
-  volume_preference: number;
+  name: string;
+  enabled: boolean;
+  theme: 'system' | 'light' | 'dark';
+  volume: number;
 }
 
 export const settings = new Preferences<Settings>({
-  defaults: { name_preference: '', enabled_preference: true, theme_preference: 'system', volume_preference: 50 },
+  defaults: { name: '', enabled: true, theme: 'system', volume: 50 },
 });
 ```
+
+**2. Read and write.** Values are stored natively and survive restarts.
 
 ```ts
 import { settings } from './settings';
 
-settings.get('volume_preference');            // number, falls back to the default
-settings.get('theme_preference');             // 'system' | 'light' | 'dark'
-settings.set('enabled_preference', false);    // typed: a string here is a compile error
-settings.set('name_preference', null);        // removes the stored value, the default applies again
-settings.clear();                             // removes everything, defaults still apply
-
-// React to changes from anywhere, including the OS settings UI
-const stop = settings.onChange('enabled_preference', (value) => console.log('enabled is now', value));
-settings.onChange((change) => console.log(change.key, change.oldValue, '->', change.value));
-stop();
-
-// Open the OS settings UI
-await settings.openSettings();
+settings.get('volume');           // 50 until something is stored, then the stored number
+settings.get('theme');            // 'system' | 'light' | 'dark'
+settings.set('enabled', false);   // typed: a string here is a compile error
+settings.set('name', null);       // removes the stored value, the default applies again
+settings.clear();                 // removes everything, defaults still apply
 ```
 
-Prefer no schema? `Preferences.shared` is an untyped instance of the same store, and the coercing getters (`getString`, `getNumber`, `getBoolean`, `getStringArray`) work on both.
-
-### Use it as a binding context
-
-`Preferences` is an `Observable` that mirrors every key (stored or defaulted) as a property. Point a page at it and bind, two-way if you like. Values edited in the OS UI show up immediately, and values edited in-app are written straight to the native store.
+**3. Bind a page to it.** The instance is an `Observable` that mirrors every key as a property.
 
 ```ts
 export function navigatingTo(args: EventData) {
@@ -76,12 +61,49 @@ export function navigatingTo(args: EventData) {
 ```
 
 ```xml
-<Label text="{{ name_preference || '(not set)' }}" />
-<Switch checked="{{ enabled_preference }}" />
-<Slider value="{{ volume_preference }}" minValue="0" maxValue="100" />
+<TextField text="{{ name }}" hint="Name" />
+<Switch checked="{{ enabled }}" />
+<Slider value="{{ volume }}" minValue="0" maxValue="100" />
 ```
 
-A key that clashes with a member of the class (for example `set` or `keys`) is still readable through `get()`, but it is not mirrored as a property.
+Two-way bindings write straight to the native store. Anything else that changes the store, including the OS settings UI, updates the bindings.
+
+**4. React to changes.**
+
+```ts
+const stop = settings.onChange('enabled', (value) => console.log('enabled is now', value));
+settings.onChange((change) => console.log(change.key, change.oldValue, '->', change.value));
+stop();
+```
+
+That is the whole plugin for most apps. Keep reading if you want the operating system to render the settings screen for you.
+
+### Notes on typing
+
+- `get(key)` is typed `T[K] | undefined`. The runtime falls back to the in-code default, but the compiler cannot see which keys have one. Pass a fallback (`get('volume', 50)`) or use `getNumber` / `getString` / `getBoolean` / `getStringArray` when you need a non-optional type under `strictNullChecks`.
+- Schema properties must be `string`, `number`, `boolean` or `string[]`. Those are the types both native stores share.
+- Prefer no schema? `Preferences.shared` is an untyped instance of the same store, and the coercing getters work on it too.
+
+## Optional: let the OS render the settings screen
+
+You never have to build a settings UI. Both operating systems can render one from a declarative file, and `openSettings()` takes the user there:
+
+```ts
+await settings.openSettings();
+```
+
+The catch is that each OS has its own file format, and neither can be generated from JavaScript at runtime. iOS reads a `Settings.bundle` inside the app, Android inflates a `res/xml` resource. So if you want the OS-rendered screen on both platforms you describe the same settings twice, using the **same keys as your schema**. Your TypeScript stays platform-agnostic; only these two resource files are platform-specific.
+
+| | File | Docs | Example |
+| --- | --- | --- | --- |
+| iOS | `App_Resources/iOS/Settings.bundle/Root.plist` | [Apple](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/UserDefaults/Preferences/Preferences.html) | [demo](demo/App_Resources/iOS/Settings.bundle/Root.plist) |
+| Android | `App_Resources/Android/src/main/res/xml/preferences.xml` | [AndroidX Preference](https://developer.android.com/develop/ui/views/components/settings) | [demo](demo/App_Resources/Android/src/main/res/xml/preferences.xml) |
+
+Both are optional and independent. Ship only the iOS bundle and build your own Android screen with bindings, or the other way round. Without the file, `openSettings()` still opens your app's entry in the iOS Settings app (it then lists only system permissions), and rejects with a clear error on Android.
+
+**iOS**: `PSChildPaneSpecifier` child panes are supported. The `DefaultValue` entries are registered on every launch so reads fall back to them.
+
+**Android**: use the AndroidX widgets (`SwitchPreferenceCompat`, `EditTextPreference`, `ListPreference`, `SeekBarPreference`, `MultiSelectListPreference`, nested `PreferenceScreen`). Call `registerDefaults()` once to persist the `android:defaultValue` entries; the screen also applies them when first shown.
 
 ### Opening settings on Android
 
@@ -97,7 +119,7 @@ await settings.openSettings({
 });
 ```
 
-The generated page has the CSS class `ns-preferences-page`, and the preference view has `ns-preferences`, in case you want to style them.
+Every option is ignored on iOS, so one call works on both platforms. The generated page has the CSS class `ns-preferences-page`, and the preference view has `ns-preferences`, in case you want to style them.
 
 ### Embedding the Android preference screen
 
@@ -114,13 +136,17 @@ The generated page has the CSS class `ns-preferences-page`, and the preference v
 
 On iOS the view renders nothing and `PreferencesView.isSupported` is `false`. Handle `navigateToScreen` and set `args.handled = true` if you want to present nested screens yourself.
 
+## Details
+
 ### Defaults
 
 Three layers, from strongest to weakest:
 
 1. A value the user stored (in-app or through the OS UI).
-2. Native defaults: the `DefaultValue` entries of `Settings.bundle` are registered on every launch on iOS; on Android call `registerDefaults()` once to persist the `android:defaultValue` entries of `preferences.xml` (the preference screen also applies them when first shown).
+2. Native defaults: the `DefaultValue` entries of `Settings.bundle` are registered on every launch on iOS; on Android call `registerDefaults()` once to persist the `android:defaultValue` entries of `preferences.xml`.
 3. In-code `defaults` passed to the constructor. They are mirrored as bindable properties and, on iOS, registered natively too.
+
+If you skip the platform files, layer 2 is empty and the in-code defaults are all you need.
 
 ### Separate stores
 
@@ -140,6 +166,10 @@ On iOS the suite must be an App Group your app is entitled to. On Android it is 
 | `string[]` | `NSArray<NSString>` | `Set<String>` (`MultiSelectListPreference`) |
 
 The coercing getters are forgiving: `getBoolean` understands `"true"`, `"1"`, `"yes"`, `"on"` and numbers, and `getNumber` parses numeric strings.
+
+### Reserved keys
+
+A key that clashes with a member of the class (for example `set` or `keys`) is still readable through `get()`, but it is not mirrored as a bindable property. A warning is traced under the `nativescript-preferences` category.
 
 ## API
 
