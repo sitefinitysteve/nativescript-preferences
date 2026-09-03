@@ -7,6 +7,7 @@
 		"typecheck": "npm --prefix src install && npm --prefix src run typecheck",
 		"pack": "npm --prefix src pack --pack-destination ./",
 		"demo.install": "npm --prefix demo install",
+		"demo.build": "npm --prefix demo run build.android && npm --prefix demo run build.ios",
 		"demo.android": "cd demo && ns run android",
 		"demo.ios": "cd demo && ns run ios",
 		"demo.clean": "cd demo && ns clean"
