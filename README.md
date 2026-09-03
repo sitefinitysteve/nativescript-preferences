@@ -392,6 +392,17 @@ npm run demo.ios
 npm run demo.android
 ```
 
+### Releasing
+
+Releases are cut from tags. Update the version in `src/package.json` and the matching `## x.y.z` section in `CHANGELOG.md`, then:
+
+```bash
+git tag v2.0.0
+git push origin master v2.0.0
+```
+
+The Release workflow runs the tests, checks that the tag matches `src/package.json`, and publishes a GitHub release whose notes are that changelog section, with the npm tarball attached. Publishing to npm stays a manual `npm publish` from `src/`.
+
 ## License
 
 Apache License Version 2.0, January 2004
