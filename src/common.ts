@@ -9,6 +9,19 @@ export type PreferenceSchemaOf<T> = { [K in keyof T]: PreferenceValue };
 /** The untyped schema: any key, any `PreferenceValue`. */
 export type PreferenceSchema = Record<string, PreferenceValue>;
 
+/** True for the untyped schema (`Record<string, ...>`), false for a concrete interface. */
+export type IsUntypedSchema<T> = string extends keyof T ? true : false;
+
+/**
+ * The defaults a schema needs. A concrete interface must provide a default for every key, which
+ * is what lets `get()` return `T[K]` instead of `T[K] | undefined`. The untyped schema takes any
+ * subset.
+ */
+export type PreferenceDefaults<T> = IsUntypedSchema<T> extends true ? Partial<T> : T;
+
+/** What `get(key)` returns: never `undefined` for a typed schema, because every key has a default. */
+export type PreferenceGetResult<T, K extends keyof T> = IsUntypedSchema<T> extends true ? T[K] | undefined : T[K];
+
 export interface PreferenceChangeEventData<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends EventData {
 	object: PreferencesCommon<T>;
 	/** The key that changed. */
@@ -28,10 +41,11 @@ export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = Preference
 	 */
 	suiteName?: string;
 	/**
-	 * Values to fall back to while a key has nothing stored. They are also mirrored as bindable
-	 * properties. On iOS they are registered in the `NSRegistrationDomain` as well.
+	 * Values to fall back to while a key has nothing stored. Required for every key of a typed
+	 * schema, optional for the untyped one. They are also mirrored as bindable properties. On iOS
+	 * they are registered in the `NSRegistrationDomain` as well.
 	 */
-	defaults?: Partial<T>;
+	defaults?: PreferenceDefaults<T>;
 }
 
 export interface OpenSettingsOptions {
@@ -151,7 +165,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	readonly suiteName: string | undefined;
 
 	/** The in-code defaults passed to the constructor. */
-	readonly defaults: Readonly<Partial<T>>;
+	readonly defaults: Readonly<PreferenceDefaults<T>>;
 
 	private readonly _mirror = new Map<string, PreferenceValue>();
 	private readonly _reservedWarned = new Set<string>();
@@ -160,15 +174,15 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	constructor(options?: PreferencesOptions<T>) {
 		super();
 		this.suiteName = options?.suiteName || undefined;
-		const defaults: Partial<T> = {};
+		const defaults: PreferenceSchema = {};
 		for (const key of Object.keys(options?.defaults || {})) {
-			const value = options.defaults[key];
+			const value = (options.defaults as PreferenceSchema)[key];
 			if (!isPreferenceValue(value)) {
 				throw new TypeError(`nativescript-preferences: unsupported default for "${key}". Use a string, finite number, boolean or string[].`);
 			}
-			(defaults as PreferenceSchema)[key] = value;
+			defaults[key] = value;
 		}
-		this.defaults = Object.freeze(defaults);
+		this.defaults = Object.freeze(defaults) as Readonly<PreferenceDefaults<T>>;
 	}
 
 	// Platform contract ---------------------------------------------------------------------
@@ -210,7 +224,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	 * Returns the stored value with its native type, else `fallback`, else the in-code default,
 	 * else `undefined`.
 	 */
-	get<K extends keyof T & string>(key: K): T[K] | undefined;
+	get<K extends keyof T & string>(key: K): PreferenceGetResult<T, K>;
 	get<K extends keyof T & string>(key: K, fallback: T[K]): T[K];
 	get(key: string, fallback?: PreferenceValue): PreferenceValue | undefined {
 		const value = this._read(key);
@@ -247,8 +261,8 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	}
 
 	/** A snapshot of every effective value. */
-	getAll(): Partial<T> {
-		return this._effectiveAll() as Partial<T>;
+	getAll(): PreferenceDefaults<T> {
+		return this._effectiveAll() as PreferenceDefaults<T>;
 	}
 
 	// Writing -------------------------------------------------------------------------------
@@ -290,7 +304,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	// Events --------------------------------------------------------------------------------
 
 	onChange(callback: (data: PreferenceChangeEventData<T>) => void): () => void;
-	onChange<K extends keyof T & string>(key: K, callback: (value: T[K] | undefined, data: PreferenceChangeEventData<T>) => void): () => void;
+	onChange<K extends keyof T & string>(key: K, callback: (value: PreferenceGetResult<T, K>, data: PreferenceChangeEventData<T>) => void): () => void;
 	onChange(keyOrCallback: string | ((data: PreferenceChangeEventData<T>) => void), maybeCallback?: (value: any, data: PreferenceChangeEventData<T>) => void): () => void {
 		const handler =
 			typeof keyOrCallback === 'string'

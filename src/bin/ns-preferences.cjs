@@ -9,7 +9,7 @@ const USAGE = `Usage: ns-preferences <command> [options]
 
 Commands
   generate   Write Settings.bundle, preferences.xml and the TypeScript module from preferences.json
-  init       Create a starter preferences.json and print the nativescript.config.ts hook to add
+  init       Create preferences.json, register the build hook in nativescript.config.ts and generate once
   check      Exit with code 1 when the generated files are out of date (for CI)
 
 Options
@@ -88,6 +88,35 @@ function report(projectDir, result, check) {
 	}
 }
 
+const HOOK_LINE = "hooks: [{ type: 'before-prepare', script: 'node_modules/nativescript-preferences/hooks/before-prepare.cjs' }],";
+
+/**
+ * Adds the before-prepare hook to nativescript.config.ts (or .js). Returns 'added', 'present' or
+ * 'manual' when the file could not be edited safely.
+ */
+function registerHook(projectDir) {
+	const configPath = ['nativescript.config.ts', 'nativescript.config.js'].map((name) => path.join(projectDir, name)).find((file) => fs.existsSync(file));
+	if (!configPath) {
+		return { status: 'manual' };
+	}
+	const source = fs.readFileSync(configPath, 'utf8');
+	if (source.includes('hooks/before-prepare.cjs')) {
+		return { status: 'present', configPath };
+	}
+	if (/\bhooks\s*:/.test(source)) {
+		return { status: 'manual', configPath, reason: 'it already declares hooks' };
+	}
+	const match = /(export\s+default\s*\{|module\.exports\s*=\s*\{)([ \t]*\r?\n)([ \t]*)/.exec(source);
+	if (!match) {
+		return { status: 'manual', configPath, reason: 'its shape was not recognised' };
+	}
+	const indent = match[3] || '  ';
+	const insertAt = match.index + match[1].length + match[2].length;
+	const updated = source.slice(0, insertAt) + indent + HOOK_LINE + match[2] + source.slice(insertAt);
+	fs.writeFileSync(configPath, updated);
+	return { status: 'added', configPath };
+}
+
 function init(projectDir, configFile, typescriptTarget) {
 	if (fs.existsSync(configFile)) {
 		throw new Error(`${relative(projectDir, configFile)} already exists.`);
@@ -120,13 +149,34 @@ function init(projectDir, configFile, typescriptTarget) {
 		],
 	};
 	fs.writeFileSync(configFile, JSON.stringify(starter, null, 2) + '\n');
-	console.log(`ns-preferences: created ${relative(projectDir, configFile)}.`);
+	console.log(`ns-preferences: created ${relative(projectDir, configFile)}`);
+
+	const hook = registerHook(projectDir);
+	if (hook.status === 'added') {
+		console.log(`ns-preferences: added the before-prepare hook to ${relative(projectDir, hook.configPath)}`);
+	} else if (hook.status === 'present') {
+		console.log(`ns-preferences: ${relative(projectDir, hook.configPath)} already has the hook`);
+	}
+
+	const result = generator.generate(generator.loadConfig(configFile), { projectDir });
+	for (const file of result.written) {
+		console.log(`ns-preferences: wrote ${relative(projectDir, file)}`);
+	}
+
 	console.log('');
-	console.log('Add the build hook to nativescript.config.ts so the platform files are regenerated on every build:');
+	if (hook.status === 'manual') {
+		const where = hook.configPath ? `${relative(projectDir, hook.configPath)} was not changed because ${hook.reason}` : 'no nativescript.config.ts was found';
+		console.log(`${where}. Add this to the config object so every build regenerates the platform files:`);
+		console.log('');
+		console.log(`  ${HOOK_LINE}`);
+		console.log('');
+	}
+	const importPath = './' + path.basename(typescript, '.ts');
+	console.log('Done. Edit preferences.json to describe your settings, then use them anywhere:');
 	console.log('');
-	console.log("  hooks: [{ type: 'before-prepare', script: 'node_modules/nativescript-preferences/hooks/before-prepare.cjs' }],");
-	console.log('');
-	console.log(`Then import { settings } from './${path.basename(typescript, '.ts')}' in your app. Run "npx ns-preferences generate" to generate right now.`);
+	console.log(`  import { settings } from '${importPath}';`);
+	console.log("  settings.get('volume');        // number");
+	console.log('  await settings.openSettings(); // the OS renders the screen');
 }
 
 function main(argv) {

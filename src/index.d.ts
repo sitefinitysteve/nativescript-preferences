@@ -9,6 +9,19 @@ export type PreferenceSchemaOf<T> = { [K in keyof T]: PreferenceValue };
 /** The untyped schema: any key, any `PreferenceValue`. */
 export type PreferenceSchema = Record<string, PreferenceValue>;
 
+/** True for the untyped schema (`Record<string, ...>`), false for a concrete interface. */
+export type IsUntypedSchema<T> = string extends keyof T ? true : false;
+
+/**
+ * The defaults a schema needs. A concrete interface must provide a default for every key, which
+ * is what lets `get()` return `T[K]` instead of `T[K] | undefined`. The untyped schema takes any
+ * subset.
+ */
+export type PreferenceDefaults<T> = IsUntypedSchema<T> extends true ? Partial<T> : T;
+
+/** What `get(key)` returns: never `undefined` for a typed schema, because every key has a default. */
+export type PreferenceGetResult<T, K extends keyof T> = IsUntypedSchema<T> extends true ? T[K] | undefined : T[K];
+
 export interface PreferenceChangeEventData<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends EventData {
 	object: Preferences<T>;
 	/** The key that changed. */
@@ -28,10 +41,11 @@ export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = Preference
 	 */
 	suiteName?: string;
 	/**
-	 * Values to fall back to while a key has nothing stored. They are also mirrored as bindable
-	 * properties. On iOS they are registered in the `NSRegistrationDomain` as well.
+	 * Values to fall back to while a key has nothing stored. Required for every key of a typed
+	 * schema, optional for the untyped one. They are also mirrored as bindable properties. On iOS
+	 * they are registered in the `NSRegistrationDomain` as well.
 	 */
-	defaults?: Partial<T>;
+	defaults?: PreferenceDefaults<T>;
 }
 
 export interface OpenSettingsOptions {
@@ -65,13 +79,15 @@ export interface PreferenceScreenEventData extends EventData {
  * iOS: `NSUserDefaults`, the store behind the app's page in the Settings app.
  * Android: the default `SharedPreferences`, the store `PreferenceScreen` widgets edit.
  *
- * Give it a schema and defaults for typed keys:
+ * Give it a schema and a default for every key, and reads are typed and never `undefined`:
  *
  * ```ts
  * interface Settings { name: string; enabled: boolean; volume: number }
  * export const settings = new Preferences<Settings>({ defaults: { name: '', enabled: true, volume: 50 } });
  * settings.get('volume'); // number
  * ```
+ *
+ * Or describe the settings in `preferences.json` and import the generated module instead.
  *
  * The instance is an `Observable` whose keys are mirrored as plain properties, so it works as a
  * `bindingContext` with one-way and two-way bindings.
@@ -87,7 +103,7 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	readonly suiteName: string | undefined;
 
 	/** The in-code defaults passed to the constructor. */
-	readonly defaults: Readonly<Partial<T>>;
+	readonly defaults: Readonly<PreferenceDefaults<T>>;
 
 	/** iOS only. The underlying `NSUserDefaults`. */
 	readonly ios: any /* NSUserDefaults */;
@@ -98,10 +114,10 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	constructor(options?: PreferencesOptions<T>);
 
 	/**
-	 * Returns the stored value with its native type, else `fallback`, else the in-code default,
-	 * else `undefined`.
+	 * Returns the stored value with its native type, else `fallback`, else the in-code default.
+	 * Only the untyped schema can yield `undefined`; a typed schema has a default for every key.
 	 */
-	get<K extends keyof T & string>(key: K): T[K] | undefined;
+	get<K extends keyof T & string>(key: K): PreferenceGetResult<T, K>;
 	get<K extends keyof T & string>(key: K, fallback: T[K]): T[K];
 
 	/** Returns the value as a string. Numbers, booleans and arrays are converted. */
@@ -123,7 +139,7 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	keys(): (keyof T & string)[];
 
 	/** A snapshot of every effective value. */
-	getAll(): Partial<T>;
+	getAll(): PreferenceDefaults<T>;
 
 	/**
 	 * Stores a value. `null` or `undefined` removes the key.
@@ -145,7 +161,7 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	onChange(callback: (data: PreferenceChangeEventData<T>) => void): () => void;
 
 	/** Subscribes to changes of one key. Returns a function that unsubscribes. */
-	onChange<K extends keyof T & string>(key: K, callback: (value: T[K] | undefined, data: PreferenceChangeEventData<T>) => void): () => void;
+	onChange<K extends keyof T & string>(key: K, callback: (value: PreferenceGetResult<T, K>, data: PreferenceChangeEventData<T>) => void): () => void;
 
 	/**
 	 * iOS: registers the `DefaultValue` of every preference in `<bundleName>.bundle` (default

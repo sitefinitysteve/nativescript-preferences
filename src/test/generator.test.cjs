@@ -167,9 +167,27 @@ test('the CLI generates, checks and reports validation errors', () => {
 	const invalid = run(['generate']);
 	assert.equal(invalid.code, 1);
 	assert.match(invalid.out, /items\[0\]\.key must match/);
+});
+
+test('init creates the description, registers the hook and generates in one go', () => {
 	const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-init-'));
 	fs.mkdirSync(path.join(fresh, 'src'));
-	const init = execFileSync(process.execPath, [bin, 'init', '--project', fresh], { encoding: 'utf8' });
-	assert.match(init, /before-prepare\.cjs/);
+	fs.writeFileSync(path.join(fresh, 'nativescript.config.ts'), "import { NativeScriptConfig } from '@nativescript/core';\n\nexport default {\n  id: 'org.example.app',\n  appPath: 'src',\n} as NativeScriptConfig;\n");
+	const bin = path.join(__dirname, '../bin/ns-preferences.cjs');
+	const out = execFileSync(process.execPath, [bin, 'init', '--project', fresh], { encoding: 'utf8' });
+	assert.match(out, /added the before-prepare hook to nativescript\.config\.ts/);
+	assert.match(out, /import \{ settings \} from '\.\/settings\.generated'/);
+	const config = fs.readFileSync(path.join(fresh, 'nativescript.config.ts'), 'utf8');
+	assert.match(config, /export default \{\n  hooks: \[\{ type: 'before-prepare', script: 'node_modules\/nativescript-preferences\/hooks\/before-prepare\.cjs' \}\],\n  id: 'org\.example\.app',/);
 	assert.equal(JSON.parse(fs.readFileSync(path.join(fresh, 'preferences.json'), 'utf8')).output.typescript, 'src/settings.generated.ts');
+	assert.ok(fs.existsSync(path.join(fresh, 'src/settings.generated.ts')));
+	assert.ok(fs.existsSync(path.join(fresh, 'App_Resources/iOS/Settings.bundle/Root.plist')));
+	assert.ok(fs.existsSync(path.join(fresh, 'App_Resources/Android/src/main/res/xml/preferences.xml')));
+
+	// Existing hooks are never touched; the user gets instructions instead.
+	const busy = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-init-'));
+	fs.writeFileSync(path.join(busy, 'nativescript.config.ts'), "export default {\n  id: 'x',\n  hooks: [{ type: 'after-prepare', script: 'other.js' }],\n};\n");
+	const busyOut = execFileSync(process.execPath, [bin, 'init', '--project', busy], { encoding: 'utf8' });
+	assert.match(busyOut, /already declares hooks/);
+	assert.doesNotMatch(fs.readFileSync(path.join(busy, 'nativescript.config.ts'), 'utf8'), /before-prepare/);
 });
