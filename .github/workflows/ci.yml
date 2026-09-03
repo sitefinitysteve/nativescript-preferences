@@ -22,3 +22,22 @@ jobs:
         working-directory: src
       - run: npm pack --dry-run
         working-directory: src
+
+  demo:
+    name: Build demo (Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: demo/package-lock.json
+      - run: npm ci
+        working-directory: demo
+      - run: npm run typecheck
+        working-directory: demo
+      - run: npm run build.android
+        working-directory: demo
+      - run: npm run build.ios
+        working-directory: demo

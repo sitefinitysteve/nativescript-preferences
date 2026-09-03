@@ -5,6 +5,11 @@
   "private": true,
   "description": "Demo app for nativescript-preferences",
   "license": "Apache-2.0",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build.android": "vite build -- --env.android",
+    "build.ios": "vite build -- --env.ios"
+  },
   "dependencies": {
     "@nativescript/core": "~9.1.0",
     "@nativescript/theme": "^3.1.0",
