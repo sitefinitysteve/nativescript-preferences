@@ -86,6 +86,40 @@ test('renders a typed TypeScript module with defaults and a shared instance', ()
 	assert.doesNotMatch(ts, /version/, 'labels are not stored values');
 });
 
+test('per-platform overrides swap, extend, trim and hide controls', () => {
+	const config = generator.normalizeConfig({
+		items: [
+			{ key: 'dark', type: 'toggle', title: 'Dark', default: false, ios: { Title: 'Dark mode' }, android: { widget: 'CheckBoxPreference', 'android:icon': '@drawable/ic_dark', 'app:iconSpaceReserved': null } },
+			{ key: 'theme', type: 'list', title: 'Theme', default: 'a', options: ['a', 'b'], ios: { specifier: 'PSRadioGroupSpecifier' }, android: { widget: 'DropDownPreference' } },
+			{ key: 'secret', type: 'text', title: 'Secret', default: '', ios: false },
+			{ key: 'tags', type: 'multilist', title: 'Tags', options: ['x', 'y'], ios: { specifier: 'PSMultiValueSpecifier' } },
+			{ type: 'screen', key: 'adv', title: 'Advanced', ios: false, items: [{ key: 'z', type: 'toggle', default: true, android: false }] },
+		],
+	});
+	const warnings = [];
+	const ios = generator.renderIos(config, warnings);
+	assert.deepEqual(Array.from(ios.keys()), ['Root.plist'], 'a screen hidden on iOS gets no plist');
+	assert.equal(warnings.length, 0, 'an explicit specifier silences the multilist warning');
+	const root = ios.get('Root.plist');
+	assert.match(root, /PSToggleSwitchSpecifier[\s\S]*?<key>Title<\/key>\s*<string>Dark mode<\/string>/);
+	assert.match(root, /<string>PSRadioGroupSpecifier<\/string>\s*<key>Key<\/key>\s*<string>theme<\/string>/);
+	assert.doesNotMatch(root, /secret|PSChildPaneSpecifier/);
+	assert.match(root, /<string>PSMultiValueSpecifier<\/string>\s*<key>Key<\/key>\s*<string>tags<\/string>/);
+
+	const xml = generator.renderAndroid(config).get('xml/preferences.xml');
+	assert.match(xml, /<CheckBoxPreference\s+android:key="dark"\s+android:title="Dark"\s+android:defaultValue="false"\s+android:icon="@drawable\/ic_dark" \/>/);
+	assert.match(xml, /<DropDownPreference[\s\S]*?android:entries="@array\/pref_theme_entries"/);
+	assert.match(xml, /<EditTextPreference[\s\S]*?android:key="secret"/, 'ios:false leaves Android alone');
+	assert.match(xml, /<PreferenceScreen\s+android:key="adv"\s+android:title="Advanced"\s+app:iconSpaceReserved="false" \/>/, 'a child hidden on Android is dropped');
+
+	const ts = generator.renderTypeScript(config);
+	assert.match(ts, /secret: string;[\s\S]*z: boolean;/, 'hidden items are still stored and typed');
+
+	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', ios: 'nope' }] }), /items\[0\]\.ios must be false or an object/);
+	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', android: { widget: '' } }] }), /android\.widget must be a non-empty string/);
+	assert.throws(() => generator.normalizeConfig({ items: [{ key: 'a', type: 'toggle', android: { 'android:icon': { x: 1 } } }] }), /android\.android:icon must be a string, number, boolean or null/);
+});
+
 test('validates the description and points at the offending item', () => {
 	const bad = (items, pattern) => assert.throws(() => generator.normalizeConfig({ items }), pattern);
 	bad([{ type: 'toggle', key: 'a' }, { type: 'toggle', key: 'a' }], /items\[1\]\.key "a" is already used/);

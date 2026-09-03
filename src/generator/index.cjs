@@ -87,6 +87,12 @@ function normalizeItem(item, where, seenKeys, depth) {
 		}
 	}
 
+	for (const platform of ['ios', 'android']) {
+		if (item[platform] !== undefined) {
+			result[platform] = normalizeOverride(item[platform], `${where}.${platform}`, platform);
+		}
+	}
+
 	if (type !== 'group') {
 		if (typeof item.key !== 'string' || !KEY_PATTERN.test(item.key)) {
 			throw new PreferencesConfigError(`${where}.key must match ${KEY_PATTERN} (letters, digits, underscore).`);
@@ -201,6 +207,53 @@ function normalizeItem(item, where, seenKeys, depth) {
 	return result;
 }
 
+/**
+ * Per-platform override: `false` hides the item on that platform, an object is merged into the
+ * generated control. `ios.specifier` / `android.widget` swap the control type; every other entry is
+ * a raw plist key or XML attribute, and `null` removes one the generator would have written.
+ */
+function normalizeOverride(override, where, platform) {
+	if (override === false) {
+		return false;
+	}
+	if (!override || typeof override !== 'object' || Array.isArray(override)) {
+		throw new PreferencesConfigError(`${where} must be false or an object.`);
+	}
+	const result = {};
+	for (const name of Object.keys(override)) {
+		const value = override[name];
+		if (platform === 'ios') {
+			if (name === 'specifier') {
+				if (typeof value !== 'string' || !value) {
+					throw new PreferencesConfigError(`${where}.specifier must be a non-empty string such as "PSRadioGroupSpecifier".`);
+				}
+			} else if (value !== null && !isPlistValue(value)) {
+				throw new PreferencesConfigError(`${where}.${name} must be a string, number, boolean, array of strings or null.`);
+			}
+		} else {
+			if (name === 'widget') {
+				if (typeof value !== 'string' || !value) {
+					throw new PreferencesConfigError(`${where}.widget must be a non-empty string such as "CheckBoxPreference".`);
+				}
+			} else if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
+				throw new PreferencesConfigError(`${where}.${name} must be a string, number, boolean or null.`);
+			}
+		}
+		result[name] = value;
+	}
+	return result;
+}
+
+function isPlistValue(value) {
+	if (typeof value === 'string' || typeof value === 'boolean') {
+		return true;
+	}
+	if (typeof value === 'number') {
+		return Number.isFinite(value);
+	}
+	return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
 function expect(item, field, where, type, fallback) {
 	const value = item[field];
 	if (value === undefined) {
@@ -260,7 +313,7 @@ function collectStored(items, result = []) {
 
 function collectScreens(items, result = []) {
 	for (const item of items) {
-		if (item.type === 'screen') {
+		if (item.type === 'screen' && item.ios !== false) {
 			result.push(item);
 			collectScreens(item.items, result);
 		} else if (item.type === 'group') {
@@ -304,8 +357,44 @@ function plistDict(entries, indent) {
 	return lines.join('\n');
 }
 
-/** Maps one item to zero or more iOS specifier dictionaries. */
+/** Maps one item to zero or more iOS specifier dictionaries, honouring `item.ios` overrides. */
 function iosSpecifiers(item, warnings) {
+	if (item.ios === false) {
+		return [];
+	}
+	const override = item.ios || {};
+	if (item.type === 'multilist' && !override.specifier) {
+		warnings.push(`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API.`);
+		return [];
+	}
+	const specifiers = iosBaseSpecifiers(item, warnings);
+	if (!specifiers.length || !Object.keys(override).length) {
+		return specifiers;
+	}
+	// Overrides apply to the item's own specifier, which is always the first one emitted.
+	specifiers[0] = applyOverrides(specifiers[0], override, 'specifier', 'Type');
+	return specifiers;
+}
+
+/** Merges override entries into an `[name, value]` list: swap the control, then set or remove keys. */
+function applyOverrides(entries, override, controlField, controlName) {
+	const merged = entries.map(([name, value]) => [name, name === controlName && override[controlField] ? override[controlField] : value]);
+	for (const name of Object.keys(override)) {
+		if (name === controlField) {
+			continue;
+		}
+		const value = override[name] === null ? undefined : override[name];
+		const index = merged.findIndex(([existing]) => existing === name);
+		if (index === -1) {
+			merged.push([name, value]);
+		} else {
+			merged[index] = [name, value];
+		}
+	}
+	return merged;
+}
+
+function iosBaseSpecifiers(item, warnings) {
 	switch (item.type) {
 		case 'group':
 			return [
@@ -358,8 +447,17 @@ function iosSpecifiers(item, warnings) {
 				],
 			];
 		case 'multilist':
-			warnings.push(`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API.`);
-			return [];
+			// Only reached with an explicit `ios.specifier`; the data shape matches PSMultiValueSpecifier.
+			return [
+				[
+					['Type', 'PSMultiValueSpecifier'],
+					['Key', item.key],
+					['Title', item.title],
+					['DefaultValue', item.default],
+					['Titles', item.options.map((option) => option.title)],
+					['Values', item.options.map((option) => option.value)],
+				],
+			];
 		case 'slider':
 			return [
 				[
@@ -424,8 +522,12 @@ function androidAttributes(pairs) {
 	return ordered.map(([name, value]) => `${name}="${escapeXml(value)}"`);
 }
 
-function androidElement(tag, attributes, children, indent) {
-	const attrs = attributes.map((attribute) => `\n${indent}    ${attribute}`).join('');
+function androidElement(tag, pairs, children, indent, override) {
+	if (override) {
+		tag = override.widget || tag;
+		pairs = applyOverrides(pairs, override, 'widget', null);
+	}
+	const attrs = androidAttributes(pairs).map((attribute) => `\n${indent}    ${attribute}`).join('');
 	if (!children || !children.length) {
 		return `${indent}<${tag}${attrs} />`;
 	}
@@ -433,6 +535,9 @@ function androidElement(tag, attributes, children, indent) {
 }
 
 function androidPreference(item, indent) {
+	if (item.android === false) {
+		return undefined;
+	}
 	const common = [
 		['android:key', item.key],
 		['android:title', item.title],
@@ -443,92 +548,103 @@ function androidPreference(item, indent) {
 		case 'group':
 			return androidElement(
 				'PreferenceCategory',
-				androidAttributes([
+				[
 					['android:title', item.title],
 					['android:summary', item.summary],
 					['app:iconSpaceReserved', 'false'],
-				]),
-				item.items.map((child) => androidPreference(child, indent + '    ')),
+				],
+				androidChildren(item, indent),
 				indent,
+				item.android,
 			);
 		case 'screen':
 			return androidElement(
 				'PreferenceScreen',
-				androidAttributes(common),
-				item.items.map((child) => androidPreference(child, indent + '    ')),
+				common,
+				androidChildren(item, indent),
 				indent,
+				item.android,
 			);
 		case 'text':
 			return androidElement(
 				'EditTextPreference',
-				androidAttributes([
+				[
 					...common,
 					['android:defaultValue', item.default],
 					['android:dialogTitle', item.title],
 					['app:useSimpleSummaryProvider', item.summary === undefined ? 'true' : undefined],
-				]),
+				],
 				null,
 				indent,
+				item.android,
 			);
 		case 'toggle':
-			return androidElement('SwitchPreferenceCompat', androidAttributes([...common, ['android:defaultValue', String(item.default)]]), null, indent);
+			return androidElement('SwitchPreferenceCompat', [...common, ['android:defaultValue', String(item.default)]], null, indent, item.android);
 		case 'list':
 			return androidElement(
 				'ListPreference',
-				androidAttributes([
+				[
 					...common,
 					['android:entries', `@array/${arrayName(item, 'entries')}`],
 					['android:entryValues', `@array/${arrayName(item, 'values')}`],
 					['android:defaultValue', item.default],
 					['android:dialogTitle', item.title],
 					['app:useSimpleSummaryProvider', item.summary === undefined ? 'true' : undefined],
-				]),
+				],
 				null,
 				indent,
+				item.android,
 			);
 		case 'multilist':
 			return androidElement(
 				'MultiSelectListPreference',
-				androidAttributes([
+				[
 					...common,
 					['android:entries', `@array/${arrayName(item, 'entries')}`],
 					['android:entryValues', `@array/${arrayName(item, 'values')}`],
 					['android:defaultValue', item.default.length ? `@array/${arrayName(item, 'default')}` : undefined],
 					['android:dialogTitle', item.title],
-				]),
+				],
 				null,
 				indent,
+				item.android,
 			);
 		case 'slider':
 			return androidElement(
 				'SeekBarPreference',
-				androidAttributes([
+				[
 					...common,
 					['android:defaultValue', String(item.default)],
 					['app:min', String(item.min)],
 					['android:max', String(item.max)],
 					['app:seekBarIncrement', item.step === undefined ? undefined : String(item.step)],
 					['app:showSeekBarValue', 'true'],
-				]),
+				],
 				null,
 				indent,
+				item.android,
 			);
 		case 'label':
 			return androidElement(
 				'Preference',
-				androidAttributes([
+				[
 					['android:key', item.key],
 					['android:title', item.title],
 					['android:summary', item.value],
 					['android:selectable', 'false'],
 					['android:persistent', 'false'],
 					['app:iconSpaceReserved', 'false'],
-				]),
+				],
 				null,
 				indent,
+				item.android,
 			);
 	}
-	return '';
+	return undefined;
+}
+
+function androidChildren(item, indent) {
+	return item.items.map((child) => androidPreference(child, indent + '    ')).filter((child) => child !== undefined);
 }
 
 function renderAndroidXml(config) {
@@ -538,7 +654,7 @@ function renderAndroidXml(config) {
 		'<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"',
 		'    xmlns:app="http://schemas.android.com/apk/res-auto">',
 		'',
-		config.items.map((item) => androidPreference(item, '    ')).join('\n\n'),
+		config.items.map((item) => androidPreference(item, '    ')).filter((item) => item !== undefined).join('\n\n'),
 		'</PreferenceScreen>',
 		'',
 	].join('\n');

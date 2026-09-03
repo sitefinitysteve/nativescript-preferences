@@ -95,11 +95,31 @@ Every item except `group` has a `key`, the storage key, which must be unique. `t
 | `text` | `string` | `PSTextFieldSpecifier` | `EditTextPreference` | `default`, `secure`, `keyboard`, `autocapitalize`, `autocorrect` (the last four are iOS only) |
 | `toggle` | `boolean` | `PSToggleSwitchSpecifier` | `SwitchPreferenceCompat` | `default` |
 | `list` | one option value | `PSMultiValueSpecifier` | `ListPreference` | `options`, `default` |
-| `multilist` | `string[]` | not rendered (iOS has no control for it) | `MultiSelectListPreference` | `options`, `default` |
+| `multilist` | `string[]` | not rendered unless `ios.specifier` is set | `MultiSelectListPreference` | `options`, `default` |
 | `slider` | integer `number` | `PSSliderSpecifier` (no title on iOS) | `SeekBarPreference` | `default`, `min`, `max`, `step` |
 | `label` | nothing | `PSTitleValueSpecifier` | non-selectable `Preference` | `value` |
 
-`options` entries are plain strings or `{ "value", "title" }`. Defaults are validated against the options, sliders against `min` and `max`, and every error names the item.
+`options` entries are plain strings or `{ "value", "title" }`. Defaults are validated against the options, sliders against `min` and `max`, and every error names the item. Every item also accepts `ios` and `android` overrides, described next.
+
+### Per-platform overrides
+
+Every item takes optional `ios` and `android` objects. Set either to `false` to leave the item out of that platform's screen; it stays in the schema and the store. Or override the control: `ios.specifier` and `android.widget` swap the control type, and every other entry is written verbatim as a plist key or XML attribute. `null` removes something the generator would have written.
+
+```json
+{
+  "key": "theme", "type": "list", "title": "Theme", "default": "system", "options": ["system", "light", "dark"],
+  "ios": { "specifier": "PSRadioGroupSpecifier" },
+  "android": { "widget": "DropDownPreference", "android:icon": "@drawable/ic_theme", "app:iconSpaceReserved": null }
+}
+```
+
+```json
+{ "key": "dark", "type": "toggle", "title": "Dark", "default": false, "android": { "widget": "CheckBoxPreference" } }
+{ "key": "debug", "type": "toggle", "title": "Debug logging", "default": false, "ios": false }
+{ "key": "tags", "type": "multilist", "options": ["news", "offers"], "ios": { "specifier": "PSMultiValueSpecifier" } }
+```
+
+The last one is how you opt a `multilist` into iOS anyway: the option arrays fit `PSMultiValueSpecifier`, so the user picks one value on iOS and several on Android. The generator validates the shape of an override, not the control you name, so anything Apple or AndroidX accepts works, including widgets from your own app.
 
 The generated module exports the interface (`AppSettings`), the defaults (`settingsDefaults`) and the instance (`settings`). Rename them with `output.interfaceName` and `output.exportName`; move the outputs with `output.ios`, `output.android` and `output.androidResource`.
 
