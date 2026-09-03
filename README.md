@@ -219,21 +219,6 @@ A typed schema needs a default per key; that is what makes `get()` never `undefi
 
 Options: `--config`, `--project`, `--app-resources`, `--platform ios|android`. The hook lives at `hooks/before-prepare.cjs`.
 
-## Migrating from 1.x
-
-Your existing `Settings.bundle` and `preferences.xml` keep working and are never overwritten. When ready, move them into `preferences.json` and run `generate --force` once.
-
-| 1.x | 2.x |
-| --- | --- |
-| `new Preferences()` | `npx ns-preferences init` and import `settings`, or `Preferences.shared`. |
-| `getValue(key)` returned `null`, or `""` / `false` / `0` on Android | `get(key)`; `undefined` when untyped and unset, or `getString` etc. to coerce. |
-| `getValue(key, default)` / `setValue(key, value)` | `get(key, default)` / `set(key, value)`. Android keeps the existing Java type. |
-| `openSettings()` started a custom `Activity` | Returns `Promise<boolean>`; Android navigates a NativeScript page. |
-| Polling for changes | `onChange(...)` or bind to the instance. |
-| `tns-core-modules` 6 | `@nativescript/core` 9. |
-
-Android: remove the `NativescriptSettingsActivity` entry from `AndroidManifest.xml` and switch `preferences.xml` to AndroidX widgets (`SwitchPreference` becomes `SwitchPreferenceCompat`).
-
 ## Development
 
 ```bash
