@@ -10,6 +10,8 @@
  *
  * The hook is a no-op for projects without a preferences.json, and when NS_PREFERENCES_SKIP is set.
  * Files without the generated header are never overwritten; the hook reports them instead.
+ * Notes (choices the generator made for you, such as a multilist left out of Settings.bundle) are
+ * only printed by `npx ns-preferences generate`, so a build stays quiet unless something needs fixing.
  */
 
 const fs = require('fs');

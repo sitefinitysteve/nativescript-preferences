@@ -34,6 +34,12 @@ export interface PreferenceChangeEventData<T extends PreferenceSchemaOf<T> = Pre
 
 export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = PreferenceSchema> {
 	/**
+	 * Keys that store whole numbers. A non-integer number written to one of them is rounded first,
+	 * so a bound `Slider` (which reports fractions on iOS) never stores 15.0038. The generated
+	 * module lists every `slider` here.
+	 */
+	integers?: (keyof T & string)[];
+	/**
 	 * Name of a separate preference store.
 	 * iOS: an App Group suite name such as `group.com.example.app`.
 	 * Android: a SharedPreferences file name.
@@ -102,6 +108,13 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	/** The store name passed to the constructor, if any. */
 	readonly suiteName: string | undefined;
 
+	/**
+	 * Untyped instance of the store `@nativescript/core`'s `ApplicationSettings` uses (the shared store
+	 * on iOS, the separate `prefs.db` file on Android), so existing values can be read through this API.
+	 */
+	static readonly applicationSettings: Preferences;
+	/** Keys whose numbers are rounded on write (`integers` option). */
+	readonly integers: ReadonlySet<string>;
 	/** The in-code defaults passed to the constructor. */
 	readonly defaults: Readonly<PreferenceDefaults<T>>;
 
@@ -217,6 +230,18 @@ export declare const resourceProperty: Property<PreferencesView, string>;
 export declare const suiteNameProperty: Property<PreferencesView, string>;
 export declare const rootKeyProperty: Property<PreferencesView, string>;
 
+/** The `xmlns` value that resolves to this plugin in XML: `xmlns:prefs="nativescript-preferences"`. */
+export declare const xmlNamespace: string;
+/**
+ * Registers the plugin in the runtime module registry so `<prefs:PreferencesView>` resolves from
+ * XML. Called automatically when the plugin is imported; only call it yourself to expose extra members.
+ */
+export declare function registerXmlNamespace(members: Record<string, unknown>): void;
+/**
+ * iOS only. Keys the OS writes into the app's defaults domain (`NSHyphenatesAsLastResort`, `AppleLanguages`...).
+ * They are left out of `keys()`, `getAll()` and change events unless the app declared the key itself.
+ */
+export declare const systemKeyPattern: RegExp;
 export declare function isPreferenceValue(value: unknown): value is PreferenceValue;
 export declare function coerceString(value: PreferenceValue | undefined, fallback: string): string;
 export declare function coerceNumber(value: PreferenceValue | undefined, fallback: number): number;

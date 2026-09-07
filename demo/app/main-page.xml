@@ -1,49 +1,76 @@
-<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="navigatingTo">
-  <ActionBar title="Preferences demo" />
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="navigatingTo" class="page">
+  <ActionBar title="Waveform" flat="true" />
 
   <ScrollView>
-    <StackLayout class="p-16">
-      <Label text="Native settings" class="section" />
-      <Button text="Open settings" tap="onOpenSettings" class="-primary" />
-      <Button text="Embedded settings page (Android)" tap="onOpenEmbedded" class="-outline" />
+    <StackLayout class="screen">
 
-      <Label text="Values read from the native store" class="section" />
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="name_preference" />
-        <Label col="1" text="{{ name_preference || '(empty)' }}" class="value" />
-      </GridLayout>
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="enabled_preference" />
-        <Label col="1" text="{{ enabled_preference }}" class="value" />
-      </GridLayout>
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="theme_preference" />
-        <Label col="1" text="{{ theme_preference }}" class="value" />
-      </GridLayout>
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="volume_preference" />
-        <Label col="1" text="{{ volume_preference }}" class="value" />
-      </GridLayout>
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="analytics_preference" />
-        <Label col="1" text="{{ analytics_preference }}" class="value" />
-      </GridLayout>
+      <StackLayout class="hero">
+        <Label text="{{ display_name }}" class="hero-name" />
+        <Label text="{{ email }}" class="hero-email" />
+        <Label text="Waveform Pro" class="badge" />
+      </StackLayout>
 
-      <Label text="Edit the same values in-app (two-way bindings)" class="section" />
-      <TextField hint="Name" text="{{ name_preference }}" returnKeyType="done" />
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="Enabled" verticalAlignment="center" />
-        <Switch col="1" checked="{{ enabled_preference }}" />
-      </GridLayout>
-      <GridLayout columns="*, auto" class="row">
-        <Label col="0" text="Volume" verticalAlignment="center" />
-        <Slider col="1" width="160" minValue="0" maxValue="100" value="{{ volume_preference }}" />
-      </GridLayout>
+      <Button text="Open the settings screen" tap="onOpenSettings" class="btn-primary" />
+      <Label id="platformHint" class="hint" textWrap="true" />
+      <Button text="Embed it in a page instead" tap="onOpenEmbedded" class="btn-ghost" ios:visibility="collapsed" />
+      <Label ios:visibility="visible" android:visibility="collapsed" class="hint" textWrap="true" text="Android only: PreferencesView can host this same screen inside one of your own pages. iOS has no in-app equivalent, because Apple keeps app settings in the Settings app." />
 
-      <Button text="Reset to defaults" tap="onReset" class="-outline" />
+      <Label text="Live values" class="section" />
+      <StackLayout class="card">
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Theme" class="row-title" />
+          <Label col="1" text="{{ theme }}" class="row-value" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Accent" class="row-title" />
+          <Label col="1" text="{{ accent }}" class="row-value" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Playback speed" class="row-title" />
+          <Label col="1" text="{{ playback_speed }}" class="row-value" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Skip silence" class="row-title" />
+          <Label col="1" text="{{ skip_silence ? 'on' : 'off' }}" class="row-value" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Notify me about" class="row-title" />
+          <Label col="1" text="{{ notify_topics.length + ' topics' }}" class="row-value" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Storage limit" class="row-title" />
+          <Label col="1" text="{{ storage_limit_gb + ' GB' }}" class="row-value" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row -last">
+          <Label col="0" text="Crash reports" class="row-title" />
+          <Label col="1" text="{{ crash_reports ? 'on' : 'off' }}" class="row-value" />
+        </GridLayout>
+      </StackLayout>
+
+      <Label text="Same store, your own controls" class="section" />
+      <StackLayout class="card">
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Compact rows" class="row-title" verticalAlignment="center" />
+          <Switch col="1" checked="{{ compact_rows }}" />
+        </GridLayout>
+        <GridLayout columns="*, auto" class="row">
+          <Label col="0" text="Play next automatically" class="row-title" verticalAlignment="center" textWrap="true" />
+          <Switch col="1" checked="{{ continuous_play }}" />
+        </GridLayout>
+        <GridLayout columns="auto, *, auto" class="row -last">
+          <Label col="0" text="Text size" class="row-title" verticalAlignment="center" />
+          <Slider col="1" class="slider" minValue="12" maxValue="24" value="{{ text_size }}" />
+          <Label col="2" text="{{ text_size }}" class="row-value" verticalAlignment="center" />
+        </GridLayout>
+      </StackLayout>
 
       <Label text="Last change" class="section" />
-      <Label id="lastChange" text="Nothing yet. Change something in the OS settings or above." class="log" textWrap="true" />
+      <StackLayout class="card">
+        <Label id="lastChange" text="Nothing yet — change something here or in the settings screen." class="log" textWrap="true" />
+      </StackLayout>
+
+      <Button text="Reset to defaults" tap="onReset" class="btn-ghost" />
+      <Label text="Every control above and every row in the settings screen comes from one preferences.json." class="footnote" textWrap="true" />
     </StackLayout>
   </ScrollView>
 </Page>

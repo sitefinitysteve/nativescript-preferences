@@ -1,24 +1,139 @@
 @import '@nativescript/theme/css/core.css';
 @import '@nativescript/theme/css/default.css';
 
-.section {
-  margin-top: 16;
-  margin-bottom: 4;
-  font-size: 12;
+Page {
+  background-color: #F2F3F7;
+  color: #14161C;
+  font-size: 15;
+}
+
+ActionBar {
+  background-color: #FFFFFF;
+  color: #14161C;
+}
+
+.screen {
+  padding: 16 16 32 16;
+}
+
+/* Header */
+
+.hero {
+  background-color: #5F6BD0;
+  border-radius: 16;
+  padding: 20;
+  margin-bottom: 16;
+}
+
+.hero-name {
+  color: #FFFFFF;
+  font-size: 24;
+  font-weight: 600;
+}
+
+.hero-email {
+  color: #DCE0FA;
+  font-size: 14;
+  margin-top: 2;
+}
+
+.badge {
+  color: #FFFFFF;
+  background-color: #7C87DE;
+  font-size: 11;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1;
-  color: #757575;
+  border-radius: 10;
+  padding: 4 10;
+  margin-top: 12;
+  horizontal-align: left;
+}
+
+/* Buttons */
+
+.btn-primary {
+  background-color: #5F6BD0;
+  color: #FFFFFF;
+  font-size: 16;
+  font-weight: 600;
+  border-radius: 12;
+  padding: 14;
+  margin: 0;
+  text-transform: none;
+  android-elevation: 0;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: #5F6BD0;
+  font-size: 15;
+  font-weight: 600;
+  border-width: 1;
+  border-color: #C9CEEE;
+  border-radius: 12;
+  padding: 12;
+  margin: 12 0 0 0;
+  text-transform: none;
+  android-elevation: 0;
+}
+
+.hint {
+  color: #6B7080;
+  font-size: 12;
+  margin: 8 4 0 4;
+}
+
+/* Cards */
+
+.section {
+  margin: 24 4 8 4;
+  font-size: 12;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1;
+  color: #6B7080;
+}
+
+.card {
+  background-color: #FFFFFF;
+  border-radius: 14;
+  padding: 4 16;
 }
 
 .row {
-  padding: 8 0;
+  padding: 12 0;
+  border-bottom-width: 1;
+  border-bottom-color: #EDEEF4;
 }
 
-.value {
-  font-weight: bold;
+.row.-last {
+  border-bottom-width: 0;
+}
+
+.row-title {
+  color: #14161C;
+}
+
+.row-value {
+  color: #5F6BD0;
+  font-weight: 600;
+}
+
+.slider {
+  margin: 0 12;
+  color: #5F6BD0;
 }
 
 .log {
+  color: #6B7080;
+  font-size: 13;
+  padding: 12 0;
+}
+
+.footnote {
+  color: #9AA0B0;
   font-size: 12;
-  color: #757575;
+  text-align: center;
+  margin: 20 8 0 8;
 }

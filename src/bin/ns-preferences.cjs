@@ -86,6 +86,9 @@ function report(projectDir, result, check) {
 	for (const warning of result.warnings) {
 		console.warn(`ns-preferences: warning: ${warning}`);
 	}
+	for (const note of result.notes || []) {
+		console.log(`ns-preferences: note: ${note}`);
+	}
 	for (const file of result.written) {
 		console.log(`ns-preferences: ${check ? 'out of date' : 'wrote'} ${relative(projectDir, file)}`);
 	}

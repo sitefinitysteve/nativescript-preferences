@@ -6,8 +6,12 @@
   "description": "Demo app for nativescript-preferences",
   "license": "Apache-2.0",
   "scripts": {
+    "generate": "node node_modules/nativescript-preferences/bin/ns-preferences.cjs generate",
+    "pretypecheck": "npm run generate",
     "typecheck": "tsc --noEmit",
+    "prebuild.android": "npm run generate",
     "build.android": "vite build -- --env.android",
+    "prebuild.ios": "npm run generate",
     "build.ios": "vite build -- --env.ios"
   },
   "dependencies": {

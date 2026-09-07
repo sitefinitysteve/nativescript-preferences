@@ -4,8 +4,8 @@
   </ActionBar>
 
   <GridLayout rows="auto, *">
-    <Label row="0" class="p-16" textWrap="true" text="PreferencesView hosts the Android preference screen inside a regular NativeScript page. Nested screens raise navigateToScreen." />
+    <Label row="0" class="hint" textWrap="true" text="PreferencesView hosts the same generated preference screen inside a regular page — a tab, a modal, anywhere. Nested screens raise navigateToScreen." />
     <prefs:PreferencesView row="1" resource="preferences" navigateToScreen="onNavigateToScreen" />
-    <Label row="1" ios:visibility="visible" android:visibility="collapsed" class="p-16 text-center" textWrap="true" text="iOS keeps app preferences in the Settings app, so there is nothing to embed here." />
+    <Label row="1" ios:visibility="visible" android:visibility="collapsed" class="hint text-center" textWrap="true" text="iOS keeps app preferences in the Settings app, so there is nothing to embed here." />
   </GridLayout>
 </Page>

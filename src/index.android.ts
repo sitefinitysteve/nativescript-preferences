@@ -1,5 +1,5 @@
 import { ActionBar, Application, Frame, NavigationButton, Page, Trace, Utils, View } from '@nativescript/core';
-import { OpenSettingsOptions, PreferenceScreenEventData, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, resourceProperty, rootKeyProperty, suiteNameProperty, traceCategory } from './common';
+import { OpenSettingsOptions, PreferenceScreenEventData, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, registerXmlNamespace, resourceProperty, rootKeyProperty, suiteNameProperty, traceCategory } from './common';
 
 export * from './common';
 
@@ -48,12 +48,17 @@ function fromJava(value: any): PreferenceValue | undefined {
 		while (iterator.hasNext()) {
 			result.push(String(iterator.next()));
 		}
-		return result;
+		// A Java Set has no order, and SharedPreferences returns it differently from one read to the
+		// next. Sort so equal sets compare equal and no phantom change event fires on launch.
+		return result.sort();
 	}
 	return String(value);
 }
 
 export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> extends PreferencesCommon<T> {
+	/** `ApplicationSettings` on Android writes to its own file, not the default SharedPreferences. */
+	protected static applicationSettingsSuiteName = 'prefs.db';
+
 	private _prefs: android.content.SharedPreferences;
 	private _listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener | null = null;
 
@@ -439,3 +444,5 @@ export class PreferencesView extends PreferencesViewBase {
 		}
 	}
 }
+
+registerXmlNamespace({ Preferences, PreferencesView });

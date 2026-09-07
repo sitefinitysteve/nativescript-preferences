@@ -46,6 +46,12 @@ export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = Preference
 	 * they are registered in the `NSRegistrationDomain` as well.
 	 */
 	defaults?: PreferenceDefaults<T>;
+	/**
+	 * Keys that store whole numbers. A non-integer number written to one of them is rounded first,
+	 * so a bound `Slider` (which reports fractions on iOS) never stores 15.0038. The generated
+	 * module lists every `slider` here.
+	 */
+	integers?: (keyof T & string)[];
 }
 
 export interface OpenSettingsOptions {
@@ -74,6 +80,25 @@ export interface PreferenceScreenEventData extends EventData {
 }
 
 export const traceCategory = 'nativescript-preferences';
+
+/** The `xmlns` value that resolves to this plugin in XML: `xmlns:prefs="nativescript-preferences"`. */
+export const xmlNamespace = 'nativescript-preferences';
+
+/**
+ * Makes `<prefs:PreferencesView>` resolvable from XML under every bundler. The XML builder looks
+ * namespaces up in the runtime module registry; webpack fills it from the XML it scans, Vite does
+ * not, so the platform entry points register themselves here as soon as they are imported.
+ */
+export function registerXmlNamespace(members: Record<string, unknown>): void {
+	const g = globalThis as { registerModule?: (name: string, loader: () => unknown) => void; moduleExists?: (name: string) => boolean };
+	if (typeof g.registerModule !== 'function') {
+		return;
+	}
+	if (typeof g.moduleExists === 'function' && g.moduleExists(xmlNamespace)) {
+		return;
+	}
+	g.registerModule(xmlNamespace, () => members);
+}
 
 export function isPreferenceValue(value: unknown): value is PreferenceValue {
 	switch (typeof value) {
@@ -161,15 +186,36 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		return ctor._shared;
 	}
 
+	/**
+	 * Untyped instance of the store `@nativescript/core`'s `ApplicationSettings` uses, so existing
+	 * values can be read through this API. On iOS that is the shared store; on Android it is the
+	 * separate `prefs.db` file, which the OS preference screen does not edit.
+	 */
+	static get applicationSettings(): PreferencesCommon {
+		const ctor = this as unknown as { new (options?: PreferencesOptions): PreferencesCommon; _applicationSettings?: PreferencesCommon; applicationSettingsSuiteName?: string };
+		if (!Object.prototype.hasOwnProperty.call(ctor, '_applicationSettings') || !ctor._applicationSettings) {
+			ctor._applicationSettings = ctor.applicationSettingsSuiteName ? new ctor({ suiteName: ctor.applicationSettingsSuiteName }) : this.shared;
+		}
+		return ctor._applicationSettings;
+	}
+
+	/** Platform classes set this when `ApplicationSettings` lives in a separate store. */
+	protected static applicationSettingsSuiteName: string | undefined;
+
 	/** The store name passed to the constructor, if any. */
 	readonly suiteName: string | undefined;
 
 	/** The in-code defaults passed to the constructor. */
 	readonly defaults: Readonly<PreferenceDefaults<T>>;
 
+	/** Keys whose numbers are rounded on write. */
+	readonly integers: ReadonlySet<string>;
+
 	private readonly _mirror = new Map<string, PreferenceValue>();
 	private readonly _reservedWarned = new Set<string>();
 	private _initialized = false;
+	/** True while a write of ours is in flight, so a synchronous native change notification is ignored. */
+	protected _writing = false;
 
 	constructor(options?: PreferencesOptions<T>) {
 		super();
@@ -183,6 +229,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 			defaults[key] = value;
 		}
 		this.defaults = Object.freeze(defaults) as Readonly<PreferenceDefaults<T>>;
+		this.integers = new Set(options?.integers || []);
 	}
 
 	// Platform contract ---------------------------------------------------------------------
@@ -280,20 +327,33 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		if (!isPreferenceValue(value)) {
 			throw new TypeError(`nativescript-preferences: unsupported value for "${key}". Use a string, finite number, boolean or string[].`);
 		}
-		this._write(key, value);
+		if (typeof value === 'number' && this.integers.has(key)) {
+			value = Math.round(value);
+		}
+		this._guarded(() => this._write(key, value as PreferenceValue));
 		this._sync(key);
 	}
 
 	/** Removes a stored value. The in-code default, if any, applies again. */
 	remove(key: keyof T & string): void {
-		this._remove(key);
+		this._guarded(() => this._remove(key));
 		this._sync(key);
 	}
 
 	/** Removes every stored value. Defaults remain in effect. */
 	clear(): void {
-		this._clear();
+		this._guarded(() => this._clear());
 		this._sync();
+	}
+
+	/** Runs a native write with `_writing` set, so the explicit `_sync` after it is the only notify path. */
+	private _guarded(write: () => void): void {
+		this._writing = true;
+		try {
+			write();
+		} finally {
+			this._writing = false;
+		}
 	}
 
 	/** Re-reads the native store and raises change events for anything that differs. */

@@ -57,8 +57,66 @@ test('renders an iOS Settings.bundle with one plist per screen', () => {
 	const advanced = files.get('advanced.plist');
 	assert.match(advanced, /PSTitleValueSpecifier[\s\S]*<string>1\.0<\/string>/);
 	assert.doesNotMatch(advanced, /channels/, 'multilist has no iOS control');
-	assert.equal(warnings.length, 1);
+	assert.equal(warnings.length, 1, 'passing one array collects notes too');
 	assert.match(warnings[0], /"channels"/);
+
+	const diagnostics = { warnings: [], notes: [] };
+	generator.renderIos(generator.normalizeConfig(sample), diagnostics);
+	assert.equal(diagnostics.warnings.length, 0, 'a multilist left out of iOS is a note, not a warning');
+	assert.equal(diagnostics.notes.length, 1);
+	assert.match(diagnostics.notes[0], /"channels"/);
+});
+
+test('iOS layout: a radio group moves to the end of its section and screens get their own card', () => {
+	const config = generator.normalizeConfig({
+		items: [
+			{
+				type: 'group',
+				title: 'Look',
+				summary: 'Footer for the rows',
+				items: [
+					{ key: 'theme', type: 'list', title: 'Theme', default: 'a', options: ['a', 'b'], ios: { widget: 'PSRadioGroupSpecifier' } },
+					{ key: 'dark', type: 'toggle', title: 'Dark', default: false },
+					{ type: 'screen', key: 'adv', title: 'Advanced', items: [] },
+					{ type: 'screen', key: 'diag', title: 'Diagnostics', items: [] },
+					{ key: 'big', type: 'toggle', title: 'Big', default: false },
+				],
+			},
+			{ type: 'screen', key: 'about', title: 'About', items: [] },
+		],
+	});
+	const diagnostics = { warnings: [], notes: [] };
+	const root = generator.renderIos(config, diagnostics).get('Root.plist');
+	const order = Array.from(root.matchAll(/<key>(?:Key|File|Type)<\/key>\s*<string>([^<]+)<\/string>/g)).map((m) => m[1]);
+	assert.deepEqual(order, [
+		'PSGroupSpecifier',
+		'PSToggleSwitchSpecifier', 'dark',
+		'PSGroupSpecifier', // untitled: the two screens share a card of their own
+		'PSChildPaneSpecifier', 'adv',
+		'PSChildPaneSpecifier', 'diag',
+		'PSGroupSpecifier', // untitled: rows resume in a new card
+		'PSToggleSwitchSpecifier', 'big',
+		'PSRadioGroupSpecifier', 'theme', // hoisted to the end of the group
+		'PSGroupSpecifier', // untitled: the root screen would otherwise join the previous group's card
+		'PSChildPaneSpecifier', 'about',
+	]);
+	assert.equal(root.match(/FooterText/g).length, 1, 'the footer stays on the titled group only');
+	assert.equal(diagnostics.warnings.length, 0);
+	assert.equal(diagnostics.notes.length, 1);
+	assert.match(diagnostics.notes[0], /"theme".*moved to the end/);
+
+	const inOrder = generator.normalizeConfig({
+		items: [{ type: 'group', title: 'Look', items: [
+			{ key: 'dark', type: 'toggle', title: 'Dark', default: false },
+			{ key: 'theme', type: 'list', title: 'Theme', default: 'a', options: ['a', 'b'], ios: { widget: 'PSRadioGroupSpecifier' } },
+		] }],
+	});
+	const quiet = { warnings: [], notes: [] };
+	generator.renderIos(inOrder, quiet);
+	assert.equal(quiet.notes.length, 0, 'a radio group that is already last is not reported');
+
+	const loneScreen = generator.renderIos(generator.normalizeConfig({ items: [{ type: 'screen', key: 'only', title: 'Only', items: [] }] })).get('Root.plist');
+	assert.equal((loneScreen.match(/PSGroupSpecifier/g) || []).length, 0, 'a screen with nothing before it needs no wrapper');
 });
 
 test('renders AndroidX preference XML and the string arrays it references', () => {
@@ -82,7 +140,7 @@ test('renders a typed TypeScript module with defaults and a shared instance', ()
 	const ts = generator.renderTypeScript(generator.normalizeConfig(sample));
 	assert.match(ts, /export interface AppSettings \{\n\tname: string;\n\tenabled: boolean;\n\ttheme: 'system' \| 'light' \| 'dark';\n\tvolume: number;\n\tanalytics: boolean;\n\tchannels: string\[\];\n\}/);
 	assert.match(ts, /export const settingsDefaults: Readonly<AppSettings> = \{\n\tname: '',\n\tenabled: true,\n\ttheme: 'system',\n\tvolume: 50,\n\tanalytics: false,\n\tchannels: \['news'\],\n\};/);
-	assert.match(ts, /export const settings = new Preferences<AppSettings>\(\{ defaults: settingsDefaults \}\);/);
+	assert.match(ts, /export const settings = new Preferences<AppSettings>\(\{ defaults: settingsDefaults, integers: \['volume'\] \}\);/);
 	assert.doesNotMatch(ts, /version/, 'labels are not stored values');
 });
 
@@ -96,10 +154,11 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 			{ type: 'screen', key: 'adv', title: 'Advanced', ios: false, items: [{ key: 'z', type: 'toggle', default: true, android: false }] },
 		],
 	});
-	const warnings = [];
-	const ios = generator.renderIos(config, warnings);
+	const diagnostics = { warnings: [], notes: [] };
+	const ios = generator.renderIos(config, diagnostics);
 	assert.deepEqual(Array.from(ios.keys()), ['Root.plist'], 'a screen hidden on iOS gets no plist');
-	assert.equal(warnings.length, 0, 'an explicit iOS widget silences the multilist warning');
+	assert.equal(diagnostics.warnings.length, 0);
+	assert.deepEqual(diagnostics.notes.map((note) => note.split(':')[0]), ['"theme"'], 'an explicit iOS widget silences the multilist note; the radio group before other rows is noted');
 	const root = ios.get('Root.plist');
 	assert.match(root, /PSToggleSwitchSpecifier[\s\S]*?<key>Title<\/key>\s*<string>Dark mode<\/string>/);
 	assert.match(root, /<string>PSRadioGroupSpecifier<\/string>\s*<key>Key<\/key>\s*<string>theme<\/string>/);

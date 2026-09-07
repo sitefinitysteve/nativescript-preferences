@@ -22,6 +22,10 @@ jobs:
         working-directory: src
       - run: npm test
         working-directory: src
+      # The demo's generated output is not committed, so generate it, then prove `check`
+      # agrees it is current.
+      - run: node bin/ns-preferences.cjs generate --project ../demo
+        working-directory: src
       - run: node bin/ns-preferences.cjs check --project ../demo
         working-directory: src
       - run: npm pack --dry-run

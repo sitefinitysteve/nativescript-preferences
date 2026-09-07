@@ -1,5 +1,5 @@
 import { Trace } from '@nativescript/core';
-import { OpenSettingsOptions, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, traceCategory } from './common';
+import { OpenSettingsOptions, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, registerXmlNamespace, traceCategory } from './common';
 
 export * from './common';
 
@@ -40,13 +40,23 @@ function toNS(value: PreferenceValue): any {
 	return value;
 }
 
-function mergeDictionary(target: Record<string, PreferenceValue>, dictionary: NSDictionary<string, any> | null): void {
+/**
+ * Keys the OS writes into an app's own defaults domain (`NSHyphenatesAsLastResort`,
+ * `AppleLanguages`, `WebKit...`). They are not app preferences, so `keys()`, `getAll()` and the
+ * global change event leave them out unless the app declared the key itself.
+ */
+export const systemKeyPattern = /^(NS|Apple|AK|WebKit|PK|MS|com\.apple\.|INNext|AddingEmojiKeybordHandled|UIInterface|CarPlay|Metal)/;
+
+function mergeDictionary(target: Record<string, PreferenceValue>, dictionary: NSDictionary<string, any> | null, keep?: (key: string) => boolean): void {
 	if (!dictionary) {
 		return;
 	}
 	const keys = dictionary.allKeys;
 	for (let i = 0; i < keys.count; i++) {
 		const key = String(keys.objectAtIndex(i));
+		if (keep && !keep(key)) {
+			continue;
+		}
 		const value = fromNS(dictionary.objectForKey(key));
 		if (value !== undefined) {
 			target[key] = value;
@@ -97,6 +107,8 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 	private _defaults: NSUserDefaults;
 	private _domain: string;
 	private _observer: any = null;
+	/** Keys this instance registered (in-code defaults and Settings.bundle defaults). */
+	private readonly _registered = new Set<string>();
 
 	constructor(options?: PreferencesOptions<T>) {
 		super(options);
@@ -132,6 +144,7 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		}
 		const dictionary = NSMutableDictionary.new<string, any>();
 		for (const key of keys) {
+			this._registered.add(key);
 			dictionary.setObjectForKey(toNS(values[key]), key);
 		}
 		this._defaults.registerDefaults(dictionary);
@@ -152,8 +165,10 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 
 	protected _readAll(): Record<string, PreferenceValue> {
 		const result: Record<string, PreferenceValue> = {};
-		mergeDictionary(result, this._defaults.volatileDomainForName(NSRegistrationDomain));
-		mergeDictionary(result, this._defaults.persistentDomainForName(this._domain));
+		// The registration domain is process-wide and full of UIKit's own defaults; keep only ours.
+		mergeDictionary(result, this._defaults.volatileDomainForName(NSRegistrationDomain), (key) => this._registered.has(key));
+		// The persistent domain is the app's, but the OS drops a few keys in it too. Declared keys always win.
+		mergeDictionary(result, this._defaults.persistentDomainForName(this._domain), (key) => this._registered.has(key) || !systemKeyPattern.test(key));
 		return result;
 	}
 
@@ -190,7 +205,8 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		const owner = new WeakRef(this);
 		this._observer = NSNotificationCenter.defaultCenter.addObserverForNameObjectQueueUsingBlock(NSUserDefaultsDidChangeNotification, null, NSOperationQueue.mainQueue, () => {
 			const self = owner.get();
-			if (self) {
+			// Our own writes notify from set()/remove()/clear(); the OS posts this synchronously inside them.
+			if (self && !self._writing) {
 				self._sync();
 			}
 		});
@@ -214,3 +230,5 @@ export class PreferencesView extends PreferencesViewBase {
 		return UIView.new();
 	}
 }
+
+registerXmlNamespace({ Preferences, PreferencesView });

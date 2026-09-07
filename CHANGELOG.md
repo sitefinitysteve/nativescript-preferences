@@ -22,6 +22,14 @@ Install with `ns plugin add nativescript-preferences`, then `npx ns-preferences 
 - Per-item `ios` / `android` overrides: `widget` swaps the control, other entries are written verbatim as plist keys or XML attributes, `null` removes one, `false` hides the item on that platform.
 - Opt-outs: files without the generated header are kept, any output can be switched off with `false`, and `NS_PREFERENCES_SKIP=1` disables the hook for a build.
 - Typed schema with in-code defaults: `new Preferences<Settings>({ defaults })` requires a default per key and gives typed `get`, `set`, `onChange` and reads that are never `undefined`. Defaults are mirrored as bindable properties and registered natively on iOS.
+- `Preferences.applicationSettings`: the store `@nativescript/core`'s `ApplicationSettings` uses, for reading existing values through this API. Same as `shared` on iOS; Android's `ApplicationSettings` writes to a separate `prefs.db` file.
+- `PreferencesOptions.integers`: keys that round on write, so a bound iOS `Slider` never stores 15.0038 in an integer key. The generated module lists every `slider`.
+- The plugin registers its XML namespace with the runtime module registry when imported, so `<prefs:PreferencesView>` works under Vite as well as webpack.
+- iOS system defaults (`NSHyphenatesAsLastResort`, `AppleLanguages`, `MultiWindowEnabled`...) are kept out of `keys()`, `getAll()`, bindable properties and change events; `systemKeyPattern` exposes the filter. Writes notify exactly once on both platforms.
+- The generator applies two iOS layout rules itself: a `PSRadioGroupSpecifier` is emitted last in its group and a `screen` sharing a group with other rows gets its own card. `generate` prints notes for choices it made (an item moved, a `multilist` left out of Settings.bundle); the build hook stays quiet.
+- `llms.txt` and `SKILL.md`, a reference for AI assistants, shipped in the package.
+- Android returns `string[]` values sorted, because `SharedPreferences` hands a `Set<String>` back in arbitrary order; without this a `multilist` raised a phantom change event on every launch.
+- `PreferencesOptions.integers` (see Fixed).
 - `Preferences.shared` singleton, coercing getters (`getString`, `getNumber`, `getBoolean`, `getStringArray`), `has`, `keys`, `getAll`, `remove`, `refresh`, `dispose`.
 - Change events from any source, including the OS settings UI: `on('change')`, `onChange(callback)`, `onChange(key, callback)`.
 - `PreferencesView`, a view that hosts the Android preference screen inside any page, tab or modal, with a `navigateToScreen` event for nested screens.
@@ -29,6 +37,11 @@ Install with `ns plugin add nativescript-preferences`, then `npx ns-preferences 
 - `registerDefaults()` on both platforms. iOS parses `Settings.bundle` (including child panes) and registers real `DefaultValue`s; Android persists `android:defaultValue`s.
 - Separate stores through `new Preferences({ suiteName })` (iOS App Group suites, Android `SharedPreferences` files).
 - `string[]` values (`MultiSelectListPreference` / `NSArray`).
+
+### Added
+
+- `Preferences.applicationSettings`: the store `@nativescript/core`'s `ApplicationSettings` uses, for reading existing values through this API. Same as `shared` on iOS; Android's `ApplicationSettings` writes to a separate `prefs.db` file.
+- `PreferencesOptions.integers` (see Fixed).
 
 ### Changed
 

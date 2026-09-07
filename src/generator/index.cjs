@@ -363,16 +363,16 @@ function plistDict(entries, indent) {
 }
 
 /** Maps one item to zero or more iOS specifier dictionaries, honouring `item.ios` overrides. */
-function iosSpecifiers(item, warnings) {
+function iosSpecifiers(item, diagnostics) {
 	if (item.ios === false) {
 		return [];
 	}
 	const override = item.ios || {};
 	if (item.type === 'multilist' && !override.widget) {
-		warnings.push(`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API.`);
+		diagnostics.notes.push(`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API. Set "ios": false on it to make that explicit.`);
 		return [];
 	}
-	const specifiers = iosBaseSpecifiers(item, warnings);
+	const specifiers = iosBaseSpecifiers(item, diagnostics);
 	if (!specifiers.length || !Object.keys(override).length) {
 		return specifiers;
 	}
@@ -399,7 +399,7 @@ function applyOverrides(entries, override, controlField, controlName) {
 	return merged;
 }
 
-function iosBaseSpecifiers(item, warnings) {
+function iosBaseSpecifiers(item, diagnostics) {
 	switch (item.type) {
 		case 'group':
 			return [
@@ -408,7 +408,7 @@ function iosBaseSpecifiers(item, warnings) {
 					['Title', item.title],
 					['FooterText', item.summary],
 				],
-				...item.items.flatMap((child) => iosSpecifiers(child, warnings)),
+				...iosSiblings(item.items, diagnostics),
 			];
 		case 'screen':
 			return [
@@ -486,8 +486,85 @@ function iosBaseSpecifiers(item, warnings) {
 	return [];
 }
 
-function renderPlist(items, warnings) {
-	const specifiers = items.flatMap((item) => iosSpecifiers(item, warnings));
+const IOS_RADIO_GROUP = 'PSRadioGroupSpecifier';
+const IOS_UNTITLED_GROUP = [['Type', 'PSGroupSpecifier']];
+
+function isIosRadioGroup(item) {
+	return item.ios && item.ios !== false && item.ios.widget === IOS_RADIO_GROUP;
+}
+
+function isIosScreen(item) {
+	return item.type === 'screen' && item.ios !== false;
+}
+
+/**
+ * Renders a list of sibling items with the layout rules iOS applies silently, so the rendered
+ * screen matches the JSON order:
+ *
+ * - A `PSRadioGroupSpecifier` is its own section; iOS hoists everything after it in the section
+ *   above it. It is moved to the end of its section instead, and a note says so.
+ * - A `PSChildPaneSpecifier` (`screen`) that shares a section with other rows joins their card and
+ *   inherits the footer. It gets an untitled group of its own, and one after it if rows follow, so
+ *   consecutive screens share a card the way the Settings app lays them out.
+ *
+ * A section is the run of items between two `group` items (or the ends of the list).
+ */
+function iosSiblings(items, diagnostics) {
+	const visible = items.filter((item) => item.ios !== false);
+	const result = [];
+	let section = [];
+	let afterGroup = false;
+	const flush = () => {
+		if (section.length) {
+			result.push(...iosSection(section, diagnostics, afterGroup));
+			section = [];
+		}
+	};
+	for (const item of visible) {
+		if (item.type === 'group') {
+			flush();
+			result.push(...iosSpecifiers(item, diagnostics));
+			afterGroup = true;
+		} else {
+			section.push(item);
+		}
+	}
+	flush();
+	return result;
+}
+
+/** `afterGroup`: the section continues a preceding group's card, so a leading screen needs its own. */
+function iosSection(items, diagnostics, afterGroup) {
+	const radios = items.filter(isIosRadioGroup);
+	const others = items.filter((item) => !isIosRadioGroup(item));
+	for (const radio of radios) {
+		const index = items.indexOf(radio);
+		if (items.slice(index + 1).some((item) => !isIosRadioGroup(item))) {
+			diagnostics.notes.push(`"${radio.key}": iOS renders a PSRadioGroupSpecifier as its own section, so it was moved to the end of its group in Settings.bundle. Put it last in preferences.json to match.`);
+		}
+	}
+	const specifiers = [];
+	const hasRows = others.some((item) => !isIosScreen(item));
+	let previousWasScreen = false;
+	others.forEach((item, index) => {
+		const screen = isIosScreen(item);
+		if (screen && !previousWasScreen && (index > 0 ? hasRows : afterGroup)) {
+			specifiers.push(IOS_UNTITLED_GROUP);
+		}
+		if (hasRows && !screen && previousWasScreen) {
+			specifiers.push(IOS_UNTITLED_GROUP);
+		}
+		specifiers.push(...iosSpecifiers(item, diagnostics));
+		previousWasScreen = screen;
+	});
+	for (const radio of radios) {
+		specifiers.push(...iosSpecifiers(radio, diagnostics));
+	}
+	return specifiers;
+}
+
+function renderPlist(items, diagnostics) {
+	const specifiers = iosSiblings(items, diagnostics);
 	const body = specifiers.map((entries) => plistDict(entries, '\t\t')).join('\n');
 	return [
 		'<?xml version="1.0" encoding="UTF-8"?>',
@@ -505,11 +582,18 @@ function renderPlist(items, warnings) {
 	].join('\n');
 }
 
-function renderIos(config, warnings) {
+/**
+ * Renders the Settings.bundle plists. `diagnostics` collects `warnings` (things to fix) and
+ * `notes` (things the generator handled for you); an array is accepted for both.
+ */
+function renderIos(config, diagnostics = { warnings: [], notes: [] }) {
+	if (Array.isArray(diagnostics)) {
+		diagnostics = { warnings: diagnostics, notes: diagnostics };
+	}
 	const files = new Map();
-	files.set('Root.plist', renderPlist(config.items, warnings));
+	files.set('Root.plist', renderPlist(config.items, diagnostics));
 	for (const screen of collectScreens(config.items)) {
-		files.set(`${screen.key}.plist`, renderPlist(screen.items, warnings));
+		files.set(`${screen.key}.plist`, renderPlist(screen.items, diagnostics));
 	}
 	return files;
 }
@@ -741,7 +825,7 @@ function renderTypeScript(config) {
 		'};',
 		'',
 		`/** One typed instance for the whole app, backed by the store the OS settings UI edits. */`,
-		`export const ${exportName} = new Preferences<${interfaceName}>({ defaults: ${exportName}Defaults });`,
+		`export const ${exportName} = new Preferences<${interfaceName}>({ defaults: ${exportName}Defaults, integers: [${stored.filter((item) => item.type === 'slider').map((item) => tsString(item.key)).join(', ')}] });`,
 		'',
 	];
 	return lines.join('\n');
@@ -816,14 +900,16 @@ function pruneStalePlists(bundleDir, keep, result) {
  * @param options.check            Report what would change without writing anything.
  * @param options.force            Overwrite files that lack the generated header (hand-written or hand-edited).
  *
- * Returns `{ written, unchanged, skipped, removed, warnings }`. `skipped` lists hand-written files
- * that were left alone.
+ * Returns `{ written, unchanged, skipped, removed, warnings, notes }`. `skipped` lists hand-written
+ * files that were left alone. `warnings` need a change in preferences.json; `notes` describe
+ * choices the generator made on your behalf (an item left out of Settings.bundle, a row moved).
  */
 function generate(config, options) {
 	const projectDir = path.resolve(options.projectDir || process.cwd());
 	const appResourcesDir = options.appResourcesDir ? path.resolve(options.appResourcesDir) : path.join(projectDir, 'App_Resources');
 	const platforms = options.platforms || ['ios', 'android'];
 	const warnings = [];
+	const notes = [];
 	const outputs = new Map();
 
 	const resolveOutput = (configured, fallback) => {
@@ -837,7 +923,7 @@ function generate(config, options) {
 	let iosDir;
 	if (platforms.includes('ios') && config.output.ios !== false) {
 		iosDir = resolveOutput(config.output.ios, DEFAULT_OUTPUT.ios);
-		for (const [name, content] of renderIos(config, warnings)) {
+		for (const [name, content] of renderIos(config, { warnings, notes })) {
 			outputs.set(path.join(iosDir, name), content);
 		}
 	}
@@ -851,7 +937,7 @@ function generate(config, options) {
 		outputs.set(path.resolve(projectDir, config.output.typescript), renderTypeScript(config));
 	}
 
-	const result = { written: [], unchanged: [], skipped: [], removed: [], warnings };
+	const result = { written: [], unchanged: [], skipped: [], removed: [], warnings, notes };
 	if (options.check) {
 		for (const [file, content] of outputs) {
 			const existing = readIfExists(file);

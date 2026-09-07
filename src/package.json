@@ -23,13 +23,15 @@
 		"generator/index.cjs",
 		"bin/ns-preferences.cjs",
 		"hooks/before-prepare.cjs",
-		"preferences.schema.json"
+		"preferences.schema.json",
+		"llms.txt",
+		"SKILL.md"
 	],
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
-		"clean": "node -e \"for (const f of ['common.js','index.android.js','index.ios.js','README.md','LICENSE']) require('fs').rmSync(f, { force: true })\"",
-		"prepack": "npm run build && node -e \"const fs=require('fs');fs.copyFileSync('../README.md','README.md');fs.copyFileSync('../LICENSE','LICENSE')\"",
+		"clean": "node -e \"for (const f of ['common.js','index.android.js','index.ios.js','README.md','LICENSE','llms.txt','SKILL.md']) require('fs').rmSync(f, { force: true })\"",
+		"prepack": "npm run build && node -e \"const fs=require('fs');for (const f of ['README.md','LICENSE','llms.txt','SKILL.md']) fs.copyFileSync('../'+f, f)\"",
 		"test": "node --test \"test/**/*.test.cjs\""
 	},
 	"repository": {
