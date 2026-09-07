@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+
+- README screenshots use absolute URLs so they render on npmjs.com. No code changes.
+
 ## 2.0.0
 
 nativescript-preferences 2.0 is a rewrite for NativeScript 9 around one idea: describe your app's settings once, and use them the same way on both platforms.
