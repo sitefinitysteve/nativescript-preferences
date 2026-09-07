@@ -1,6 +1,6 @@
 {
 	"name": "nativescript-preferences",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Native app preferences for NativeScript: read and write NSUserDefaults / SharedPreferences, open the OS settings UI, and bind your own screens to the same values.",
 	"main": "index",
 	"typings": "index.d.ts",
