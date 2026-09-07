@@ -20,17 +20,17 @@ The demo app's [`preferences.json`](demo/preferences.json) produces every screen
 
 |  | iOS — the Settings app | Android — an AndroidX `PreferenceScreen` |
 | --- | --- | --- |
-| **Root** | <img src="images/ios-settings-root.png" width="250" alt="iOS settings, top" /> <img src="images/ios-settings-root-2.png" width="250" alt="iOS settings, continued" /> | <img src="images/android-settings-root.png" width="250" alt="Android preference screen, top" /> <img src="images/android-settings-root-2.png" width="250" alt="Android preference screen, continued" /> |
-| **Nested screen** | <img src="images/ios-settings-advanced.png" width="250" alt="iOS Advanced screen" /> | <img src="images/android-settings-advanced.png" width="250" alt="Android Advanced screen" /> |
-| **Two levels deep** | <img src="images/ios-settings-diagnostics.png" width="250" alt="iOS Diagnostics screen" /> | <img src="images/android-settings-diagnostics.png" width="250" alt="Android Diagnostics screen" /> |
+| **Root** | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-settings-root.png" width="250" alt="iOS settings, top" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-settings-root-2.png" width="250" alt="iOS settings, continued" /> | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-root.png" width="250" alt="Android preference screen, top" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-root-2.png" width="250" alt="Android preference screen, continued" /> |
+| **Nested screen** | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-settings-advanced.png" width="250" alt="iOS Advanced screen" /> | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-advanced.png" width="250" alt="Android Advanced screen" /> |
+| **Two levels deep** | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-settings-diagnostics.png" width="250" alt="iOS Diagnostics screen" /> | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-diagnostics.png" width="250" alt="Android Diagnostics screen" /> |
 
 Same JSON, native idioms on each side: the `list` for Theme is an `ios.widget` radio group on the left and a `DropDownPreference` with an icon on the right, and the `multilist` that iOS has no control for is hidden there and a `MultiSelectListPreference` on Android.
 
-<img src="images/android-settings-multiselect.png" width="250" alt="Android multi-select dialog" />
+<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-multiselect.png" width="250" alt="Android multi-select dialog" />
 
 And the same values in the app itself, through the typed API and two-way bindings:
 
-<img src="images/ios-app.png" width="250" alt="Demo app on iOS" /> <img src="images/android-app.png" width="250" alt="Demo app on Android" />
+<img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-app.png" width="250" alt="Demo app on iOS" /> <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-app.png" width="250" alt="Demo app on Android" />
 
 ## Quick start
 
