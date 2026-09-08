@@ -163,7 +163,7 @@ Any control that stores the same shape of data is a safe swap ([Apple reference]
 | integer | `PSSliderSpecifier` | `SeekBarPreference` |
 | read-only | `PSTitleValueSpecifier` | `Preference` |
 
-Fully qualified Android classes work too. The generator checks the shape of an override, not the name.
+Fully qualified Android classes work too. The generator accepts any non-empty `widget` name without checking it, so stick to the table above or a control that stores the same shape of data.
 
 Two iOS layout quirks are handled for you: a `PSRadioGroupSpecifier` is always emitted last in its group (iOS renders it as its own section and would reorder the rows otherwise; `generate` prints a note if it moved), and a `screen` that shares a group with other rows gets its own card instead of inheriting their footer.
 
@@ -198,7 +198,7 @@ A typed schema needs a default per key; that is what makes `get()` never `undefi
 
 **Embed it.** `<prefs:PreferencesView resource="preferences" />` hosts the Android screen in any page, tab or modal (`xmlns:prefs="nativescript-preferences"`). It renders nothing on iOS; `PreferencesView.isSupported` tells you. Handle `navigateToScreen` and set `args.handled = true` to present nested screens yourself. The plugin registers the namespace with the XML builder the moment it is imported, so it works under both webpack and Vite; just make sure something imports it before the page loads (the generated settings module does).
 
-**Defaults, strongest first.** The stored value; the native defaults (`Settings.bundle` `DefaultValue`s registered on launch, `preferences.xml` `android:defaultValue`s via `registerDefaults()`); the in-code defaults. With the generator all three come from the same JSON.
+**Defaults, strongest first.** The stored value; the native defaults; the in-code defaults. On iOS the shared store registers the `Settings.bundle` `DefaultValue`s on launch, after the in-code defaults, so a bundle value wins where both define a key; a `suiteName` store has no bundle. Android has no registration layer: `registerDefaults()` fills in the `preferences.xml` `android:defaultValue`s for keys that have no stored value yet. AndroidX records that it has run with one app-wide flag, so a second call for another resource or a `suiteName` store does nothing unless the second argument, `readAgain`, is `true`. With the generator all three come from the same JSON.
 
 **Coming from `ApplicationSettings`.** `Preferences` covers every `ApplicationSettings` call (`getBoolean` / `getString` / `getNumber`, `has`, `keys`, `remove`, `clear`) and adds typed keys, `string[]`, defaults, change events and the OS screen. On iOS both read the same `NSUserDefaults`; on Android `ApplicationSettings` keeps its own `prefs.db` file, so use `Preferences.applicationSettings` to read values written there, or move them once into `settings`.
 

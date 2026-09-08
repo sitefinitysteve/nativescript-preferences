@@ -42,10 +42,10 @@ function toNS(value: PreferenceValue): any {
 
 /**
  * Keys the OS writes into an app's own defaults domain (`NSHyphenatesAsLastResort`,
- * `AppleLanguages`, `WebKit...`). They are not app preferences, so `keys()`, `getAll()` and the
+ * `AppleLanguages`, `MultiWindowEnabled`, `WebKit...`). They are not app preferences, so `keys()`, `getAll()` and the
  * global change event leave them out unless the app declared the key itself.
  */
-export const systemKeyPattern = /^(NS|Apple|AK|WebKit|PK|MS|com\.apple\.|INNext|AddingEmojiKeybordHandled|UIInterface|CarPlay|Metal)/;
+export const systemKeyPattern = /^(NS|Apple|AK|WebKit|PK|MS|com\.apple\.|INNext|AddingEmojiKeybordHandled|UIInterface|CarPlay|Metal|MultiWindow)/;
 
 function mergeDictionary(target: Record<string, PreferenceValue>, dictionary: NSDictionary<string, any> | null, keep?: (key: string) => boolean): void {
 	if (!dictionary) {
@@ -114,10 +114,11 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		super(options);
 		this._defaults = this.suiteName ? NSUserDefaults.alloc().initWithSuiteName(this.suiteName) : NSUserDefaults.standardUserDefaults;
 		this._domain = this.suiteName || NSBundle.mainBundle.bundleIdentifier;
+		this._registerDictionary(this.defaults);
+		// After the in-code defaults so a bundle value wins where both define a key.
 		if (!this.suiteName) {
 			this.registerDefaults();
 		}
-		this._registerDictionary(this.defaults);
 		this._init();
 	}
 
@@ -128,8 +129,9 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 
 	/**
 	 * Registers the `DefaultValue` of every preference in `Settings.bundle` so reads fall back to
-	 * them before the user opens Settings. Runs automatically for the shared store on every launch.
-	 * Returns the defaults that were found.
+	 * them before the user opens Settings. Runs automatically for the shared store on every launch,
+	 * after the in-code defaults, so the bundle wins where both define a key. Returns the defaults
+	 * that were found.
 	 */
 	registerDefaults(bundleName = 'Settings'): Record<string, PreferenceValue> {
 		const defaults = readSettingsBundleDefaults(bundleName);

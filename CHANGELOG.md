@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- iOS registered in-code defaults after the `Settings.bundle` ones, so a hand-written bundle value lost to the in-code one, the opposite of what the README said. The bundle now wins where both define a key. Generated projects are unaffected; both come from the same JSON.
+- `MultiWindowEnabled`, and any other `MultiWindow*` key iOS writes, is now filtered from `keys()`, `getAll()` and the global change event. The README already claimed it was.
+- README: `widget` overrides are not validated by the generator, and the docs no longer suggest they are. Spelled out what `registerDefaults()` does on Android.
+
 ## 2.0.1
 
 - README screenshots use absolute URLs so they render on npmjs.com. No code changes.
