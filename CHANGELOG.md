@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.2
 
 - iOS registered in-code defaults after the `Settings.bundle` ones, so a hand-written bundle value lost to the in-code one, the opposite of what the README said. The bundle now wins where both define a key. Generated projects are unaffected; both come from the same JSON.
 - `MultiWindowEnabled`, and any other `MultiWindow*` key iOS writes, is now filtered from `keys()`, `getAll()` and the global change event. The README already claimed it was.
