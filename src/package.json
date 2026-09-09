@@ -35,7 +35,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/types/tsconfig.json",
 		"clean": "node -e \"for (const f of ['common.js','index.android.js','index.ios.js','README.md','LICENSE','llms.txt','SKILL.md']) require('fs').rmSync(f, { force: true })\"",
 		"prepack": "npm run build && node -e \"const fs=require('fs');for (const f of ['README.md','LICENSE','llms.txt','SKILL.md']) fs.copyFileSync('../'+f, f)\"",
-		"test": "node --test \"test/**/*.test.cjs\" && tsc -p test/types/tsconfig.json"
+		"test": "npm run build && node --test \"test/**/*.test.cjs\" && tsc -p test/types/tsconfig.json"
 	},
 	"repository": {
 		"type": "git",
