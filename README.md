@@ -3,6 +3,8 @@
 **App settings for NativeScript, declared once.** Describe them in one TypeScript file; get the iOS Settings screen, the Android preference screen, and a typed API, all from the same definition and all reading the same native store.
 
 ```ts
+import settings from './app.preferences';
+
 settings.get('theme');           // 'system' | 'light' | 'dark', never undefined
 settings.set('volume', 80);      // persisted in NSUserDefaults / SharedPreferences
 settings.onChange('theme', applyTheme);
