@@ -26,31 +26,41 @@ const NODE_BUILTINS = new Set(Module.builtinModules);
  */
 function findTypescript(projectDir, searchPaths) {
 	const paths = searchPaths || [projectDir];
+
 	if (!searchPaths && require.main && require.main.filename) {
 		paths.push(path.dirname(require.main.filename));
 	}
+
 	if (!searchPaths) {
 		paths.push(__dirname);
 	}
+
 	let seen;
+
 	for (const dir of paths) {
 		let resolved;
+
 		try {
 			resolved = require.resolve('typescript', { paths: [dir] });
 		} catch (error) {
 			continue;
 		}
+
 		const ts = require(resolved);
+
 		if (typeof ts.transpileModule === 'function') {
 			return ts;
 		}
+
 		seen = seen || ts.version;
 	}
+
 	if (seen) {
 		throw new Error(
 			`reading app.preferences.ts needs the TypeScript compiler API, which typescript ${seen} no longer includes. Install typescript 6 as a devDependency, the version the NativeScript 9 template uses.`,
 		);
 	}
+
 	throw new Error(
 		'reading app.preferences.ts needs the "typescript" package (6, as in the NativeScript 9 template). Add it as a devDependency; every NativeScript app that builds already has it.',
 	);
@@ -65,6 +75,7 @@ function evaluate(file, projectDir, ts, cache, options) {
 	if (cache.has(file)) {
 		return cache.get(file).exports;
 	}
+
 	const name = relative(projectDir, file);
 	const source = fs.readFileSync(file, 'utf8');
 	const output = ts.transpileModule(source, {
@@ -78,35 +89,45 @@ function evaluate(file, projectDir, ts, cache, options) {
 		},
 	});
 	const diagnostic = (output.diagnostics || [])[0];
+
 	if (diagnostic) {
 		throw new Error(`${name}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`);
 	}
+
 	// The module object is cached, not its exports, so a cycle sees the current `module.exports`.
 	const module = { exports: {} };
+
 	cache.set(file, module);
 	const shimRequire = (specifier) => {
 		if (PLUGIN_NAMES.includes(specifier)) {
 			return { definePreferences: (definition) => definition };
 		}
+
 		if (RELATIVE.test(specifier)) {
 			const base = path.resolve(path.dirname(file), specifier);
 			const target = EXTENSIONS.map((extension) => base + extension).find(
 				(candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile(),
 			);
+
 			if (!target) {
 				throw new Error(`${name}: cannot find "${specifier}". Relative imports must point at a .ts or .js file.`);
 			}
+
 			return evaluate(target, projectDir, ts, cache, options);
 		}
+
 		if (options && options.config) {
 			// nativescript.config.ts may use Node itself; anything else only has to not crash.
 			const bare = specifier.startsWith('node:') ? specifier.slice(5) : specifier;
+
 			return NODE_BUILTINS.has(bare) ? require(bare) : {};
 		}
+
 		throw new Error(
 			`${name} runs in Node at build time and cannot import "${specifier}". Keep it self-contained: import only this package and relative .ts or .js helpers.`,
 		);
 	};
+
 	try {
 		vm.runInThisContext(Module.wrap(output.outputText), { filename: file })(
 			module.exports,
@@ -120,10 +141,13 @@ function evaluate(file, projectDir, ts, cache, options) {
 		if (error instanceof SyntaxError) {
 			throw new Error(
 				`${name}: ${error.message}. The file runs in Node at build time; use plain imports and exports, no import.meta or top-level await.`,
+				{ cause: error },
 			);
 		}
+
 		throw error;
 	}
+
 	return module.exports;
 }
 
@@ -141,9 +165,11 @@ function loadDefinition(file, options = {}) {
 		new Map(),
 	);
 	const candidate = exports && typeof exports === 'object' && 'default' in exports ? exports.default : exports;
+
 	if (!candidate || typeof candidate !== 'object' || !Array.isArray(candidate.items)) {
 		throw new Error(`${relative(projectDir, file)} must \`export default definePreferences({ items: [...] })\`.`);
 	}
+
 	return candidate;
 }
 
@@ -158,24 +184,31 @@ function findDefinition({ projectDir, appDir, config }) {
 	if (config) {
 		return path.resolve(projectDir, config);
 	}
+
 	const dirs = [];
+
 	if (appDir) {
 		dirs.push(path.resolve(projectDir, appDir));
 	}
+
 	dirs.push(projectDir);
 	const candidates = [];
+
 	for (const dir of dirs) {
 		for (const name of DEFINITION_FILES) {
 			candidates.push(path.join(dir, name));
 		}
 	}
+
 	candidates.push(path.join(projectDir, JSON_FILE));
 	const present = Array.from(new Set(candidates)).filter((file) => fs.existsSync(file));
+
 	if (present.length > 1) {
 		throw new Error(
 			`found more than one preferences definition: ${present.map((file) => relative(projectDir, file)).join(', ')}. Keep one, or pass --config.`,
 		);
 	}
+
 	return present[0];
 }
 
@@ -190,20 +223,26 @@ function resolveAppDir(projectDir) {
 	const configFile = ['nativescript.config.ts', 'nativescript.config.js']
 		.map((name) => path.join(projectDir, name))
 		.find((file) => fs.existsSync(file));
+
 	if (configFile) {
 		let config;
+
 		try {
 			const exports = evaluate(configFile, projectDir, findTypescript(projectDir), new Map(), { config: true });
+
 			config = exports && typeof exports === 'object' && 'default' in exports ? exports.default : exports;
 		} catch (error) {
 			throw new Error(
 				`could not read ${path.basename(configFile)} to find appPath (${error.message}). Pass --app-dir <dir>.`,
+				{ cause: error },
 			);
 		}
+
 		if (config && typeof config.appPath === 'string' && config.appPath) {
 			return path.resolve(projectDir, config.appPath);
 		}
 	}
+
 	return fs.existsSync(path.join(projectDir, 'src')) && !fs.existsSync(path.join(projectDir, 'app'))
 		? path.join(projectDir, 'src')
 		: path.join(projectDir, 'app');
