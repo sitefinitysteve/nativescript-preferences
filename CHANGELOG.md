@@ -1,10 +1,10 @@
 # Changelog
 
-## 3.0.0
+## 2.1.0
 
 Settings are now declared in TypeScript. `app/app.preferences.ts` exports `definePreferences({ items })`; keys, value types and option literals are inferred from the literal, and the same file is the runtime instance, so there is no generated `settings.generated.ts` any more. The build hook evaluates the file under Node, the way the NativeScript CLI reads `nativescript.config.ts`, and writes `Settings.bundle` and `preferences.xml` from it exactly as before. Suggested by the NativeScript core team on the RFC: https://github.com/NativeScript/rfcs/pull/54#issuecomment-5593575051
 
-**Breaking**
+**Requirements**
 
 - Requires TypeScript 6, the version NativeScript 9 ships with; the typings use `const` type parameters, so the floor is 5.3, and 7.0 is verified too. Projects on `preferences.json` are affected, since the typings are shared. Reading the definition at build time needs the TypeScript compiler API, which 7.x dropped: the hook uses the project's `typescript` when it has it, else the NativeScript CLI's own copy, else explains what to install.
 - `npx ns-preferences init` creates `app/app.preferences.ts`. Pass `--json` for the previous behaviour; `--typescript <file>` now only applies with `--json`.
