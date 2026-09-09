@@ -18,36 +18,46 @@ function fromNS(value: any): PreferenceValue | undefined {
 	if (value === null || value === undefined) {
 		return undefined;
 	}
+
 	switch (typeof value) {
 		case 'string':
 		case 'number':
 		case 'boolean':
 			return value;
 	}
+
 	if (value instanceof NSString) {
 		return String(value);
 	}
+
 	if (value instanceof NSNumber) {
 		return value.doubleValue;
 	}
+
 	if (value instanceof NSArray) {
 		const result: string[] = [];
+
 		for (let i = 0; i < value.count; i++) {
 			result.push(String(value.objectAtIndex(i)));
 		}
+
 		return result;
 	}
+
 	return undefined;
 }
 
 function toNS(value: PreferenceValue): any {
 	if (Array.isArray(value)) {
 		const array = NSMutableArray.new<string>();
+
 		for (const item of value) {
 			array.addObject(String(item));
 		}
+
 		return array;
 	}
+
 	return value;
 }
 
@@ -67,13 +77,18 @@ function mergeDictionary(
 	if (!dictionary) {
 		return;
 	}
+
 	const keys = dictionary.allKeys;
+
 	for (let i = 0; i < keys.count; i++) {
 		const key = String(keys.objectAtIndex(i));
+
 		if (keep && !keep(key)) {
 			continue;
 		}
+
 		const value = fromNS(dictionary.objectForKey(key));
+
 		if (value !== undefined) {
 			target[key] = value;
 		}
@@ -84,44 +99,57 @@ function mergeDictionary(
 function readSettingsBundleDefaults(bundleName: string): Record<string, PreferenceValue> {
 	const result: Record<string, PreferenceValue> = {};
 	const bundlePath = NSBundle.mainBundle.pathForResourceOfType(bundleName, 'bundle');
+
 	if (!bundlePath) {
 		Trace.write(
 			`${bundleName}.bundle was not found in the app bundle, so no defaults were registered.`,
 			traceCategory,
 			Trace.messageType.info,
 		);
+
 		return result;
 	}
+
 	const visited = new Set<string>();
 	const visit = (plistName: string) => {
 		if (visited.has(plistName)) {
 			return;
 		}
+
 		visited.add(plistName);
 		const dictionary = NSDictionary.dictionaryWithContentsOfFile(`${bundlePath}/${plistName}.plist`);
 		const specifiers: NSArray<NSDictionary<string, any>> | null = dictionary
 			? dictionary.objectForKey('PreferenceSpecifiers')
 			: null;
+
 		if (!specifiers) {
 			return;
 		}
+
 		for (let i = 0; i < specifiers.count; i++) {
 			const specifier = specifiers.objectAtIndex(i);
+
 			if (String(specifier.objectForKey('Type')) === 'PSChildPaneSpecifier') {
 				const file = specifier.objectForKey('File');
+
 				if (file) {
 					visit(String(file));
 				}
+
 				continue;
 			}
+
 			const key = specifier.objectForKey('Key');
 			const defaultValue = fromNS(specifier.objectForKey('DefaultValue'));
+
 			if (key && defaultValue !== undefined) {
 				result[String(key)] = defaultValue;
 			}
 		}
 	};
+
 	visit('Root');
+
 	return result;
 }
 
@@ -143,6 +171,7 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		if (!this.suiteName) {
 			this.registerDefaults();
 		}
+
 		this._init();
 	}
 
@@ -159,20 +188,26 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 	 */
 	registerDefaults(bundleName = 'Settings'): Record<string, PreferenceValue> {
 		const defaults = readSettingsBundleDefaults(bundleName);
+
 		this._registerDictionary(defaults);
+
 		return defaults;
 	}
 
 	private _registerDictionary(values: Record<string, PreferenceValue>): void {
 		const keys = Object.keys(values);
+
 		if (!keys.length) {
 			return;
 		}
+
 		const dictionary = NSMutableDictionary.new<string, any>();
+
 		for (const key of keys) {
 			this._registered.add(key);
 			dictionary.setObjectForKey(toNS(values[key]), key);
 		}
+
 		this._defaults.registerDefaults(dictionary);
 		this._sync();
 	}
@@ -181,10 +216,13 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		return new Promise((resolve) => {
 			const url = NSURL.URLWithString(UIApplicationOpenSettingsURLString);
 			const application = UIApplication.sharedApplication;
+
 			if (!url || !application.canOpenURL(url)) {
 				resolve(false);
+
 				return;
 			}
+
 			application.openURLOptionsCompletionHandler(url, NSDictionary.new<string, any>(), (success: boolean) =>
 				resolve(!!success),
 			);
@@ -193,6 +231,7 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 
 	protected _readAll(): Record<string, PreferenceValue> {
 		const result: Record<string, PreferenceValue> = {};
+
 		// The registration domain is process-wide and full of UIKit's own defaults; keep only ours.
 		mergeDictionary(result, this._defaults.volatileDomainForName(NSRegistrationDomain), (key) =>
 			this._registered.has(key),
@@ -203,6 +242,7 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 			this._defaults.persistentDomainForName(this._domain),
 			(key) => this._registered.has(key) || !systemKeyPattern.test(key),
 		);
+
 		return result;
 	}
 
@@ -236,13 +276,16 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		if (this._observer) {
 			return;
 		}
+
 		const owner = new WeakRef(this);
+
 		this._observer = NSNotificationCenter.defaultCenter.addObserverForNameObjectQueueUsingBlock(
 			NSUserDefaultsDidChangeNotification,
 			null,
 			NSOperationQueue.mainQueue,
 			() => {
 				const self = owner.get();
+
 				// Our own writes notify from set()/remove()/clear(); the OS posts this synchronously inside them.
 				if (self && !self._writing) {
 					self._sync();
@@ -270,6 +313,7 @@ export class PreferencesView extends PreferencesViewBase {
 			traceCategory,
 			Trace.messageType.info,
 		);
+
 		return UIView.new();
 	}
 }

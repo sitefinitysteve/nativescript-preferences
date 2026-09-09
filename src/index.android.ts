@@ -35,11 +35,13 @@ function sharedPreferencesName(suiteName: string | undefined): string {
 
 function resolveXmlResource(context: android.content.Context, name: string): number {
 	const id = context.getResources().getIdentifier(name, 'xml', context.getPackageName());
+
 	if (!id) {
 		throw new Error(
 			`nativescript-preferences: resource "res/xml/${name}.xml" was not found. Add App_Resources/Android/src/main/res/xml/${name}.xml with a <PreferenceScreen>.`,
 		);
 	}
+
 	return id;
 }
 
@@ -47,28 +49,35 @@ function fromJava(value: any): PreferenceValue | undefined {
 	if (value === null || value === undefined) {
 		return undefined;
 	}
+
 	switch (typeof value) {
 		case 'string':
 		case 'number':
 		case 'boolean':
 			return value;
 	}
+
 	if (value instanceof java.lang.Boolean) {
 		return value.booleanValue();
 	}
+
 	if (value instanceof java.lang.Number) {
 		return value.doubleValue();
 	}
+
 	if (value instanceof java.util.Set) {
 		const result: string[] = [];
 		const iterator = value.iterator();
+
 		while (iterator.hasNext()) {
 			result.push(String(iterator.next()));
 		}
+
 		// A Java Set has no order, and SharedPreferences returns it differently from one read to the
 		// next. Sort so equal sets compare equal and no phantom change event fires on launch.
 		return result.sort();
 	}
+
 	return String(value);
 }
 
@@ -100,6 +109,7 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 	registerDefaults(resource = DEFAULT_RESOURCE, readAgain = false): void {
 		const context = appContext();
 		const resId = resolveXmlResource(context, resource);
+
 		if (this.suiteName) {
 			androidx.preference.PreferenceManager.setDefaultValues(
 				context,
@@ -111,12 +121,14 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		} else {
 			androidx.preference.PreferenceManager.setDefaultValues(context, resId, readAgain);
 		}
+
 		this._sync();
 	}
 
 	openSettings(options: OpenSettingsOptions = {}): Promise<boolean> {
 		try {
 			const resource = options.resource || DEFAULT_RESOURCE;
+
 			resolveXmlResource(appContext(), resource);
 			const page = createSettingsPage({
 				resource,
@@ -124,6 +136,7 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 				suiteName: this.suiteName,
 				title: options.title,
 			});
+
 			return Promise.resolve(
 				presentPage(page, { modal: options.modal, frame: options.frame, animated: options.animated }),
 			);
@@ -135,13 +148,16 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 	protected _readAll(): Record<string, PreferenceValue> {
 		const result: Record<string, PreferenceValue> = {};
 		const iterator = this._prefs.getAll().entrySet().iterator();
+
 		while (iterator.hasNext()) {
 			const entry = iterator.next();
 			const value = fromJava(entry.getValue());
+
 			if (value !== undefined) {
 				result[String(entry.getKey())] = value;
 			}
 		}
+
 		return result;
 	}
 
@@ -149,11 +165,13 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		if (!this._prefs.contains(key)) {
 			return undefined;
 		}
+
 		return fromJava(this._prefs.getAll().get(key));
 	}
 
 	protected _write(key: string, value: PreferenceValue): void {
 		const editor = this._prefs.edit();
+
 		if (typeof value === 'boolean') {
 			editor.putBoolean(key, value);
 		} else if (typeof value === 'string') {
@@ -162,17 +180,21 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 			this._putNumber(editor, key, value);
 		} else {
 			const set = new java.util.HashSet<string>();
+
 			for (const item of value) {
 				set.add(String(item));
 			}
+
 			editor.putStringSet(key, set);
 		}
+
 		editor.apply();
 	}
 
 	/** Keeps the Java type a preference already has, so PreferenceScreen widgets keep reading it. */
 	private _putNumber(editor: android.content.SharedPreferences.Editor, key: string, value: number): void {
 		const existing = this._prefs.contains(key) ? this._prefs.getAll().get(key) : null;
+
 		if (existing instanceof java.lang.Long) {
 			editor.putLong(key, Math.trunc(value));
 		} else if (existing instanceof java.lang.Float) {
@@ -200,11 +222,14 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		if (this._listener) {
 			return;
 		}
+
 		const owner = new WeakRef(this);
+
 		// SharedPreferences keeps listeners weakly, so the instance holds the strong reference.
 		this._listener = new android.content.SharedPreferences.OnSharedPreferenceChangeListener({
 			onSharedPreferenceChanged: (_prefs: android.content.SharedPreferences, key: string) => {
 				const self = owner.get();
+
 				if (self) {
 					self._sync(key === null || key === undefined ? undefined : String(key));
 				}
@@ -239,17 +264,21 @@ interface PresentOptions {
 
 function createSettingsPage(options: SettingsPageOptions): Page {
 	const page = new Page();
+
 	page.className = 'ns-preferences-page';
 
 	const actionBar = new ActionBar();
+
 	actionBar.title = options.title || 'Settings';
 	const navigationButton = new NavigationButton();
+
 	navigationButton.icon = 'res://abc_ic_ab_back_material';
 	navigationButton.text = 'Back';
 	actionBar.navigationButton = navigationButton;
 	page.actionBar = actionBar;
 
 	const view = new PreferencesView();
+
 	view.className = 'ns-preferences';
 	view.resource = options.resource;
 	view.suiteName = options.suiteName;
@@ -262,33 +291,43 @@ function createSettingsPage(options: SettingsPageOptions): Page {
 function presentPage(page: Page, options: PresentOptions): boolean {
 	const animated = options.animated !== false;
 	const frame = options.frame || Frame.topmost();
+
 	if (!options.modal && frame) {
 		page.actionBar.navigationButton.on(NavigationButton.tapEvent, () => {
 			const owner = page.frame || frame;
+
 			if (owner.canGoBack()) {
 				owner.goBack();
 			}
 		});
 		frame.navigate({ create: () => page, animated });
+
 		return true;
 	}
+
 	const host = options.host || frame || Application.getRootView();
+
 	if (!host) {
 		throw new Error('nativescript-preferences: there is no Frame or root view to present the settings page from.');
 	}
+
 	page.actionBar.navigationButton.on(NavigationButton.tapEvent, () => page.closeModal());
 	host.showModal(page, { context: null, closeCallback: () => undefined, fullscreen: true, animated });
+
 	return true;
 }
 
 function isInsideModal(view: View): boolean {
 	let current: any = view;
+
 	while (current) {
 		if (current._dialogFragment) {
 			return true;
 		}
+
 		current = current.parent;
 	}
+
 	return false;
 }
 
@@ -302,39 +341,49 @@ function ensureFragmentClass(): { new (): PreferenceFragment } {
 	if (FragmentClass) {
 		return FragmentClass;
 	}
+
 	if (typeof androidx.preference === 'undefined' || !androidx.preference.PreferenceFragmentCompat) {
 		throw new Error(
 			'nativescript-preferences: androidx.preference is missing. Make sure the plugin include.gradle was applied and rebuild the app.',
 		);
 	}
+
 	FragmentClass = androidx.preference.PreferenceFragmentCompat.extend({
 		onCreatePreferences(this: PreferenceFragment, _savedInstanceState: android.os.Bundle, rootKey: string): void {
 			const args = this.getArguments();
 			const resource = (args && args.getString(ARG_RESOURCE)) || DEFAULT_RESOURCE;
 			const suiteName = args ? args.getString(ARG_SUITE_NAME) : null;
 			const root = (args && args.getString(ARG_ROOT_KEY)) || rootKey || null;
+
 			if (suiteName) {
 				this.getPreferenceManager().setSharedPreferencesName(suiteName);
 			}
+
 			this.setPreferencesFromResource(resolveXmlResource(this.requireContext(), resource), root);
 		},
 		onNavigateToScreen(this: PreferenceFragment, screen: androidx.preference.PreferenceScreen): void {
 			const key = screen.getKey();
+
 			if (!key) {
 				Trace.write(
 					'A nested PreferenceScreen needs an android:key to be opened.',
 					traceCategory,
 					Trace.messageType.warn,
 				);
+
 				return;
 			}
+
 			const rawTitle = screen.getTitle();
 			const title = rawTitle ? String(rawTitle) : undefined;
 			const owner = this._owner ? this._owner.get() : undefined;
+
 			if (owner) {
 				owner._navigateToScreen(key, title);
+
 				return;
 			}
+
 			const args = this.getArguments();
 			const page = createSettingsPage({
 				resource: (args && args.getString(ARG_RESOURCE)) || DEFAULT_RESOURCE,
@@ -342,9 +391,11 @@ function ensureFragmentClass(): { new (): PreferenceFragment } {
 				rootKey: key,
 				title,
 			});
+
 			presentPage(page, {});
 		},
 	}) as { new (): PreferenceFragment };
+
 	return FragmentClass;
 }
 
@@ -359,17 +410,21 @@ export class PreferencesView extends PreferencesViewBase {
 
 	createNativeView(): android.widget.FrameLayout {
 		const layout = new android.widget.FrameLayout(this._context);
+
 		layout.setId(android.view.View.generateViewId());
+
 		return layout;
 	}
 
 	initNativeView(): void {
 		super.initNativeView();
 		const owner = new WeakRef(this);
+
 		// The fragment can only be placed once the layout sits inside the page's fragment view.
 		this._attachListener = new android.view.View.OnAttachStateChangeListener({
 			onViewAttachedToWindow: () => {
 				const view = owner.get();
+
 				if (view) {
 					view._ensureFragment();
 				}
@@ -385,6 +440,7 @@ export class PreferencesView extends PreferencesViewBase {
 			this.nativeViewProtected.removeOnAttachStateChangeListener(this._attachListener);
 			this._attachListener = null;
 		}
+
 		super.disposeNativeView();
 	}
 
@@ -409,10 +465,12 @@ export class PreferencesView extends PreferencesViewBase {
 			title,
 			handled: false,
 		};
+
 		this.notify(data);
 		if (data.handled) {
 			return;
 		}
+
 		const currentTitle = this.page && this.page.actionBar ? this.page.actionBar.title : undefined;
 		const page = createSettingsPage({
 			resource: this.resource,
@@ -420,6 +478,7 @@ export class PreferencesView extends PreferencesViewBase {
 			rootKey: key,
 			title: title || currentTitle,
 		});
+
 		if (isInsideModal(this)) {
 			presentPage(page, { modal: true, host: this });
 		} else {
@@ -436,26 +495,33 @@ export class PreferencesView extends PreferencesViewBase {
 
 	private _resolveFragmentManager(): androidx.fragment.app.FragmentManager | null {
 		const nativeView = this.nativeViewProtected;
+
 		if (!nativeView) {
 			return null;
 		}
+
 		try {
 			const host = androidx.fragment.app.FragmentManager.findFragment(nativeView);
+
 			if (host) {
 				return host.getChildFragmentManager();
 			}
 		} catch (error) {
 			// The view is not hosted by a fragment; fall through to the activity's manager.
 		}
+
 		const rootManager = (this as any)._getRootFragmentManager ? (this as any)._getRootFragmentManager() : null;
+
 		return rootManager || null;
 	}
 
 	private _ensureFragment(): void {
 		const manager = this._resolveFragmentManager();
+
 		if (!manager || manager.isDestroyed()) {
 			return;
 		}
+
 		if (
 			this._fragment &&
 			this._fragmentManager &&
@@ -464,19 +530,23 @@ export class PreferencesView extends PreferencesViewBase {
 		) {
 			return;
 		}
+
 		this._removeFragment();
 
 		const args = new android.os.Bundle();
+
 		args.putString(ARG_RESOURCE, this.resource || DEFAULT_RESOURCE);
 		if (this.suiteName) {
 			args.putString(ARG_SUITE_NAME, this.suiteName);
 		}
+
 		if (this.rootKey) {
 			args.putString(ARG_ROOT_KEY, this.rootKey);
 		}
 
 		const Fragment = ensureFragmentClass();
 		const fragment = new Fragment();
+
 		fragment.setArguments(args);
 		fragment._owner = new WeakRef(this);
 
@@ -491,6 +561,7 @@ export class PreferencesView extends PreferencesViewBase {
 	private _removeFragment(): void {
 		const manager = this._fragmentManager;
 		const fragment = this._fragment;
+
 		this._fragment = null;
 		this._fragmentManager = null;
 		if (manager && fragment && !manager.isDestroyed()) {

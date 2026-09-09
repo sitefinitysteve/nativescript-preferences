@@ -4,6 +4,7 @@ import settings from './app.preferences';
 
 export function navigatingTo(args: EventData) {
 	const page = <Page>args.object;
+
 	page.bindingContext = settings;
 }
 

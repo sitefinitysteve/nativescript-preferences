@@ -45,16 +45,20 @@ const sample = {
 
 function tempProject() {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-'));
+
 	fs.mkdirSync(path.join(dir, 'app'));
 	fs.writeFileSync(path.join(dir, 'preferences.json'), JSON.stringify(sample, null, 2));
+
 	return dir;
 }
 
 test('renders an iOS Settings.bundle with one plist per screen', () => {
 	const warnings = [];
 	const files = generator.renderIos(generator.normalizeConfig(sample), warnings);
+
 	assert.deepEqual(Array.from(files.keys()), ['Root.plist', 'advanced.plist']);
 	const root = files.get('Root.plist');
+
 	assert.match(
 		root,
 		/<string>PSGroupSpecifier<\/string>\s*<key>Title<\/key>\s*<string>General<\/string>\s*<key>FooterText<\/key>\s*<string>Footer<\/string>/,
@@ -70,12 +74,14 @@ test('renders an iOS Settings.bundle with one plist per screen', () => {
 	assert.match(root, /PSSliderSpecifier[\s\S]*<key>MaximumValue<\/key>\s*<integer>100<\/integer>/);
 	assert.match(root, /PSChildPaneSpecifier[\s\S]*<key>File<\/key>\s*<string>advanced<\/string>/);
 	const advanced = files.get('advanced.plist');
+
 	assert.match(advanced, /PSTitleValueSpecifier[\s\S]*<string>1\.0<\/string>/);
 	assert.doesNotMatch(advanced, /channels/, 'multilist has no iOS control');
 	assert.equal(warnings.length, 1, 'passing one array collects notes too');
 	assert.match(warnings[0], /"channels"/);
 
 	const diagnostics = { warnings: [], notes: [] };
+
 	generator.renderIos(generator.normalizeConfig(sample), diagnostics);
 	assert.equal(diagnostics.warnings.length, 0, 'a multilist left out of iOS is a note, not a warning');
 	assert.equal(diagnostics.notes.length, 1);
@@ -112,6 +118,7 @@ test('iOS layout: a radio group moves to the end of its section and screens get 
 	const order = Array.from(root.matchAll(/<key>(?:Key|File|Type)<\/key>\s*<string>([^<]+)<\/string>/g)).map(
 		(m) => m[1],
 	);
+
 	assert.deepEqual(order, [
 		'PSGroupSpecifier',
 		'PSToggleSwitchSpecifier',
@@ -155,12 +162,14 @@ test('iOS layout: a radio group moves to the end of its section and screens get 
 		],
 	});
 	const quiet = { warnings: [], notes: [] };
+
 	generator.renderIos(inOrder, quiet);
 	assert.equal(quiet.notes.length, 0, 'a radio group that is already last is not reported');
 
 	const loneScreen = generator
 		.renderIos(generator.normalizeConfig({ items: [{ type: 'screen', key: 'only', title: 'Only', items: [] }] }))
 		.get('Root.plist');
+
 	assert.equal(
 		(loneScreen.match(/PSGroupSpecifier/g) || []).length,
 		0,
@@ -170,8 +179,10 @@ test('iOS layout: a radio group moves to the end of its section and screens get 
 
 test('renders AndroidX preference XML and the string arrays it references', () => {
 	const files = generator.renderAndroid(generator.normalizeConfig(sample));
+
 	assert.deepEqual(Array.from(files.keys()), ['xml/preferences.xml', 'values/preferences_arrays.xml']);
 	const xml = files.get('xml/preferences.xml');
+
 	assert.match(xml, /<PreferenceCategory\s+android:title="General"\s+android:summary="Footer"/);
 	assert.match(xml, /<EditTextPreference[\s\S]*android:key="name"[\s\S]*app:useSimpleSummaryProvider="true"/);
 	assert.match(
@@ -196,6 +207,7 @@ test('renders AndroidX preference XML and the string arrays it references', () =
 		/<Preference[\s\S]*android:key="version"[\s\S]*android:summary="1\.0"[\s\S]*android:selectable="false"/,
 	);
 	const arrays = files.get('values/preferences_arrays.xml');
+
 	assert.match(
 		arrays,
 		/<string-array name="pref_theme_entries">\s*<item>Follow system<\/item>\s*<item>light<\/item>\s*<item>dark<\/item>/,
@@ -205,6 +217,7 @@ test('renders AndroidX preference XML and the string arrays it references', () =
 
 test('renders a typed TypeScript module with defaults and a shared instance', () => {
 	const ts = generator.renderTypeScript(generator.normalizeConfig(sample));
+
 	assert.match(
 		ts,
 		/export interface AppSettings \{\n\tname: string;\n\tenabled: boolean;\n\ttheme: 'system' \| 'light' \| 'dark';\n\tvolume: number;\n\tanalytics: boolean;\n\tchannels: string\[\];\n\}/,
@@ -253,6 +266,7 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 	});
 	const diagnostics = { warnings: [], notes: [] };
 	const ios = generator.renderIos(config, diagnostics);
+
 	assert.deepEqual(Array.from(ios.keys()), ['Root.plist'], 'a screen hidden on iOS gets no plist');
 	assert.equal(diagnostics.warnings.length, 0);
 	assert.deepEqual(
@@ -261,12 +275,14 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 		'an explicit iOS widget silences the multilist note; the radio group before other rows is noted',
 	);
 	const root = ios.get('Root.plist');
+
 	assert.match(root, /PSToggleSwitchSpecifier[\s\S]*?<key>Title<\/key>\s*<string>Dark mode<\/string>/);
 	assert.match(root, /<string>PSRadioGroupSpecifier<\/string>\s*<key>Key<\/key>\s*<string>theme<\/string>/);
 	assert.doesNotMatch(root, /secret|PSChildPaneSpecifier/);
 	assert.match(root, /<string>PSMultiValueSpecifier<\/string>\s*<key>Key<\/key>\s*<string>tags<\/string>/);
 
 	const xml = generator.renderAndroid(config).get('xml/preferences.xml');
+
 	assert.match(
 		xml,
 		/<CheckBoxPreference\s+android:key="dark"\s+android:title="Dark"\s+android:defaultValue="false"\s+android:icon="@drawable\/ic_dark" \/>/,
@@ -280,6 +296,7 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 	);
 
 	const ts = generator.renderTypeScript(config);
+
 	assert.match(ts, /secret: string;[\s\S]*z: boolean;/, 'hidden items are still stored and typed');
 
 	assert.throws(
@@ -302,6 +319,7 @@ test('per-platform overrides swap, extend, trim and hide controls', () => {
 
 test('validates the description and points at the offending item', () => {
 	const bad = (items, pattern) => assert.throws(() => generator.normalizeConfig({ items }), pattern);
+
 	bad(
 		[
 			{ type: 'toggle', key: 'a' },
@@ -322,11 +340,13 @@ test('generate writes every file once, is idempotent and prunes stale screen pli
 	const dir = tempProject();
 	const config = generator.loadConfig(path.join(dir, 'preferences.json'));
 	const bundle = path.join(dir, 'App_Resources/iOS/Settings.bundle');
+
 	fs.mkdirSync(bundle, { recursive: true });
 	fs.writeFileSync(path.join(bundle, 'Old.plist'), `<!-- ${generator.GENERATED_MARKER} -->`);
 	fs.writeFileSync(path.join(bundle, 'Handwritten.plist'), '<plist/>');
 
 	const first = generator.generate(config, { projectDir: dir });
+
 	assert.deepEqual(first.written.map((file) => path.relative(dir, file)).sort(), [
 		'App_Resources/Android/src/main/res/values/preferences_arrays.xml',
 		'App_Resources/Android/src/main/res/xml/preferences.xml',
@@ -341,12 +361,15 @@ test('generate writes every file once, is idempotent and prunes stale screen pli
 	assert.ok(fs.existsSync(path.join(bundle, 'Handwritten.plist')), 'files without the marker are left alone');
 
 	const second = generator.generate(config, { projectDir: dir });
+
 	assert.equal(second.written.length, 0);
 	assert.equal(second.unchanged.length, 5);
 
 	const check = generator.generate(config, { projectDir: dir, check: true });
+
 	assert.equal(check.written.length, 0);
 	const stale = `// ${generator.GENERATED_MARKER}\nstale`;
+
 	fs.writeFileSync(path.join(dir, 'app/settings.generated.ts'), stale);
 	assert.equal(generator.generate(config, { projectDir: dir, check: true }).written.length, 1);
 	assert.equal(fs.readFileSync(path.join(dir, 'app/settings.generated.ts'), 'utf8'), stale, 'check does not write');
@@ -357,12 +380,14 @@ test('hand-written files are kept unless forced, and outputs can be switched off
 	const config = generator.loadConfig(path.join(dir, 'preferences.json'));
 	const plist = path.join(dir, 'App_Resources/iOS/Settings.bundle/Root.plist');
 	const xml = path.join(dir, 'App_Resources/Android/src/main/res/xml/preferences.xml');
+
 	fs.mkdirSync(path.dirname(plist), { recursive: true });
 	fs.mkdirSync(path.dirname(xml), { recursive: true });
 	fs.writeFileSync(plist, '<plist>mine</plist>');
 	fs.writeFileSync(xml, '<PreferenceScreen>mine</PreferenceScreen>');
 
 	const first = generator.generate(config, { projectDir: dir });
+
 	assert.deepEqual(first.skipped.map((file) => path.basename(file)).sort(), ['Root.plist', 'preferences.xml']);
 	assert.equal(fs.readFileSync(plist, 'utf8'), '<plist>mine</plist>');
 	assert.equal(fs.readFileSync(xml, 'utf8'), '<PreferenceScreen>mine</PreferenceScreen>');
@@ -372,10 +397,12 @@ test('hand-written files are kept unless forced, and outputs can be switched off
 	);
 
 	const check = generator.generate(config, { projectDir: dir, check: true });
+
 	assert.deepEqual(check.skipped.length, 2);
 	assert.equal(check.written.length, 0, 'kept files are not reported as out of date');
 
 	const forced = generator.generate(config, { projectDir: dir, force: true });
+
 	assert.deepEqual(forced.written.map((file) => path.basename(file)).sort(), ['Root.plist', 'preferences.xml']);
 	assert.match(fs.readFileSync(plist, 'utf8'), /Generated by nativescript-preferences/);
 
@@ -395,6 +422,7 @@ test('hand-written files are kept unless forced, and outputs can be switched off
 	const off = generator.normalizeConfig({ ...sample, output: { ios: false, android: false, typescript: false } });
 	const dir2 = tempProject();
 	const result = generator.generate(off, { projectDir: dir2 });
+
 	assert.deepEqual(result.written, []);
 	assert.ok(!fs.existsSync(path.join(dir2, 'App_Resources')));
 	assert.throws(
@@ -412,6 +440,7 @@ test('generate honours a custom App_Resources path and a single platform', () =>
 		platforms: ['android'],
 	});
 	const written = result.written.map((file) => path.relative(dir, file)).sort();
+
 	assert.deepEqual(written, [
 		'app/settings.generated.ts',
 		'custom/App_Resources/Android/src/main/res/values/preferences_arrays.xml',
@@ -422,6 +451,7 @@ test('generate honours a custom App_Resources path and a single platform', () =>
 test('the before-prepare hook generates for the platform being prepared and skips projects without a description', () => {
 	const hook = require('../hooks/before-prepare.cjs');
 	const dir = tempProject();
+
 	hook({
 		projectData: { projectDir: dir, appResourcesDirectoryPath: path.join(dir, 'App_Resources') },
 		prepareData: { platform: 'iOS' },
@@ -429,6 +459,7 @@ test('the before-prepare hook generates for the platform being prepared and skip
 	assert.ok(fs.existsSync(path.join(dir, 'App_Resources/iOS/Settings.bundle/Root.plist')));
 	assert.ok(!fs.existsSync(path.join(dir, 'App_Resources/Android')));
 	const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-empty-'));
+
 	hook({ projectData: { projectDir: empty }, prepareData: { platform: 'android' } });
 	assert.deepEqual(fs.readdirSync(empty), []);
 
@@ -438,6 +469,7 @@ test('the before-prepare hook generates for the platform being prepared and skip
 	} finally {
 		delete process.env.NS_PREFERENCES_SKIP;
 	}
+
 	assert.ok(!fs.existsSync(path.join(dir, 'App_Resources/Android')), 'NS_PREFERENCES_SKIP disables the hook');
 });
 
@@ -458,25 +490,30 @@ test('the CLI generates, checks and reports validation errors', () => {
 			return { code: error.status, out: `${error.stdout}${error.stderr}` };
 		}
 	};
+
 	assert.equal(run(['generate']).code, 0);
 	assert.equal(run(['check']).code, 0);
 	fs.writeFileSync(path.join(dir, 'app/settings.generated.ts'), 'stale');
 	const kept = run(['check']);
+
 	assert.equal(kept.code, 0, 'a file without the header is kept, not stale');
 	assert.match(kept.out, /kept app\/settings\.generated\.ts \(hand-written/);
 	assert.equal(run(['generate', '--force']).code, 0);
 	fs.writeFileSync(path.join(dir, 'app/settings.generated.ts'), `// ${generator.GENERATED_MARKER}\nstale`);
 	const stale = run(['check']);
+
 	assert.equal(stale.code, 1);
 	assert.match(stale.out, /out of date app\/settings\.generated\.ts/);
 	fs.writeFileSync(path.join(dir, 'preferences.json'), '{ "items": [ { "type": "toggle", "key": "1bad" } ] }');
 	const invalid = run(['generate']);
+
 	assert.equal(invalid.code, 1);
 	assert.match(invalid.out, /items\[0\]\.key must match/);
 });
 
 test('init creates the description, registers the hook and generates in one go', () => {
 	const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-init-'));
+
 	fs.mkdirSync(path.join(fresh, 'src'));
 	fs.writeFileSync(
 		path.join(fresh, 'nativescript.config.ts'),
@@ -484,9 +521,11 @@ test('init creates the description, registers the hook and generates in one go',
 	);
 	const bin = path.join(__dirname, '../bin/ns-preferences.cjs');
 	const out = execFileSync(process.execPath, [bin, 'init', '--json', '--project', fresh], { encoding: 'utf8' });
+
 	assert.match(out, /added the before-prepare hook to nativescript\.config\.ts/);
 	assert.match(out, /import \{ settings \} from '\.\/settings\.generated'/);
 	const config = fs.readFileSync(path.join(fresh, 'nativescript.config.ts'), 'utf8');
+
 	assert.match(
 		config,
 		/export default \{\n  hooks: \[\{ type: 'before-prepare', script: 'node_modules\/nativescript-preferences\/hooks\/before-prepare\.cjs' \}\],\n  id: 'org\.example\.app',/,
@@ -501,11 +540,13 @@ test('init creates the description, registers the hook and generates in one go',
 
 	// Existing hooks are never touched; the user gets instructions instead.
 	const busy = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-init-'));
+
 	fs.writeFileSync(
 		path.join(busy, 'nativescript.config.ts'),
 		"export default {\n  id: 'x',\n  hooks: [{ type: 'after-prepare', script: 'other.js' }],\n};\n",
 	);
 	const busyOut = execFileSync(process.execPath, [bin, 'init', '--project', busy], { encoding: 'utf8' });
+
 	assert.match(busyOut, /already declares hooks/);
 	assert.doesNotMatch(fs.readFileSync(path.join(busy, 'nativescript.config.ts'), 'utf8'), /before-prepare/);
 });

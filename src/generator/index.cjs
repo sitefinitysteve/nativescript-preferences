@@ -38,40 +38,50 @@ class PreferencesConfigError extends Error {
  */
 function loadConfig(file, options = {}) {
 	const source = path.basename(file);
+
 	if (!file.endsWith('.json')) {
 		const { loadDefinition } = require('./load-definition.cjs');
 		let definition;
+
 		try {
 			definition = loadDefinition(file, { projectDir: options.projectDir });
 		} catch (error) {
 			throw new PreferencesConfigError(error.message, source);
 		}
+
 		return normalizeConfig(definition, { source });
 	}
+
 	let text;
+
 	try {
 		text = fs.readFileSync(file, 'utf8');
 	} catch (error) {
 		throw new PreferencesConfigError(`could not read ${file}: ${error.message}`, source);
 	}
+
 	let json;
+
 	try {
 		json = JSON.parse(text);
 	} catch (error) {
 		throw new PreferencesConfigError(`${file} is not valid JSON: ${error.message}`, source);
 	}
+
 	return normalizeConfig(json, { source });
 }
 
 /** `options.source` is the file name for headers and messages (default `preferences.json`). */
 function normalizeConfig(json, options = {}) {
 	const source = options.source || DEFAULT_CONFIG_FILE;
+
 	try {
 		return normalizeConfigFrom(json, source);
 	} catch (error) {
 		if (error instanceof PreferencesConfigError && source !== DEFAULT_CONFIG_FILE) {
 			error.message = error.message.replace(`${DEFAULT_CONFIG_FILE}:`, `${source}:`);
 		}
+
 		throw error;
 	}
 }
@@ -80,9 +90,11 @@ function normalizeConfigFrom(json, source) {
 	if (!json || typeof json !== 'object' || Array.isArray(json)) {
 		throw new PreferencesConfigError('the root must be an object with an "items" array.');
 	}
+
 	if (!Array.isArray(json.items)) {
 		throw new PreferencesConfigError('"items" must be an array.');
 	}
+
 	if (!source.endsWith('.json')) {
 		// A definition file is the typed module; the generated one and its naming have no meaning here.
 		for (const field of ['typescript', 'interfaceName', 'exportName']) {
@@ -92,12 +104,14 @@ function normalizeConfigFrom(json, source) {
 				);
 			}
 		}
+
 		if (json.suiteName !== undefined) {
 			throw new PreferencesConfigError(
 				'"suiteName" is not supported in a definition yet; construct `new Preferences({ suiteName })` for a separate store.',
 			);
 		}
 	}
+
 	for (const field of Object.keys(json.output || {})) {
 		if (!Object.prototype.hasOwnProperty.call(DEFAULT_OUTPUT, field)) {
 			throw new PreferencesConfigError(
@@ -105,18 +119,22 @@ function normalizeConfigFrom(json, source) {
 			);
 		}
 	}
+
 	const output = Object.assign({}, DEFAULT_OUTPUT, json.output || {});
+
 	for (const field of ['androidResource', 'interfaceName', 'exportName']) {
 		if (typeof output[field] !== 'string' || !output[field]) {
 			throw new PreferencesConfigError(`"output.${field}" must be a non-empty string.`);
 		}
 	}
+
 	// `false` switches an output off entirely, for people who maintain that file by hand.
 	for (const field of ['ios', 'android']) {
 		if (output[field] !== false && (typeof output[field] !== 'string' || !output[field])) {
 			throw new PreferencesConfigError(`"output.${field}" must be a path or false.`);
 		}
 	}
+
 	if (
 		output.typescript !== undefined &&
 		output.typescript !== false &&
@@ -124,8 +142,10 @@ function normalizeConfigFrom(json, source) {
 	) {
 		throw new PreferencesConfigError('"output.typescript" must be a path or false when set.');
 	}
+
 	const seenKeys = new Map();
 	const items = json.items.map((item, index) => normalizeItem(item, `items[${index}]`, seenKeys, 0));
+
 	return { title: typeof json.title === 'string' ? json.title : 'Settings', output, items, source };
 }
 
@@ -133,18 +153,23 @@ function normalizeItem(item, where, seenKeys, depth) {
 	if (!item || typeof item !== 'object' || Array.isArray(item)) {
 		throw new PreferencesConfigError(`${where} must be an object.`);
 	}
+
 	const type = item.type;
+
 	if (!ITEM_TYPES.includes(type)) {
 		throw new PreferencesConfigError(
 			`${where}.type must be one of ${ITEM_TYPES.join(', ')}, got ${JSON.stringify(type)}.`,
 		);
 	}
+
 	const result = { type };
+
 	for (const field of ['title', 'summary', 'placeholder']) {
 		if (item[field] !== undefined) {
 			if (typeof item[field] !== 'string') {
 				throw new PreferencesConfigError(`${where}.${field} must be a string.`);
 			}
+
 			result[field] = item[field];
 		}
 	}
@@ -159,9 +184,11 @@ function normalizeItem(item, where, seenKeys, depth) {
 		if (typeof item.key !== 'string' || !KEY_PATTERN.test(item.key)) {
 			throw new PreferencesConfigError(`${where}.key must match ${KEY_PATTERN} (letters, digits, underscore).`);
 		}
+
 		if (seenKeys.has(item.key)) {
 			throw new PreferencesConfigError(`${where}.key "${item.key}" is already used by ${seenKeys.get(item.key)}.`);
 		}
+
 		seenKeys.set(item.key, where);
 		result.key = item.key;
 	}
@@ -170,18 +197,23 @@ function normalizeItem(item, where, seenKeys, depth) {
 		if (!Array.isArray(item.items)) {
 			throw new PreferencesConfigError(`${where}.items must be an array.`);
 		}
+
 		if (type === 'screen' && !result.title) {
 			throw new PreferencesConfigError(`${where}.title is required for a screen.`);
 		}
+
 		result.items = item.items.map((child, index) => {
 			const childWhere = `${where}.items[${index}]`;
+
 			if (type === 'group' && child && child.type === 'group') {
 				throw new PreferencesConfigError(
 					`${childWhere}: a group cannot contain another group. Use a screen for nesting.`,
 				);
 			}
+
 			return normalizeItem(child, childWhere, seenKeys, depth + 1);
 		});
+
 		return result;
 	}
 
@@ -191,23 +223,31 @@ function normalizeItem(item, where, seenKeys, depth) {
 			if (item.secure !== undefined) {
 				result.secure = expect(item, 'secure', where, 'boolean');
 			}
+
 			if (item.keyboard !== undefined) {
 				const keyboards = ['default', 'email', 'number', 'decimal', 'phone', 'url'];
+
 				if (!keyboards.includes(item.keyboard)) {
 					throw new PreferencesConfigError(`${where}.keyboard must be one of ${keyboards.join(', ')}.`);
 				}
+
 				result.keyboard = item.keyboard;
 			}
+
 			if (item.autocapitalize !== undefined) {
 				const modes = ['none', 'sentences', 'words', 'characters'];
+
 				if (!modes.includes(item.autocapitalize)) {
 					throw new PreferencesConfigError(`${where}.autocapitalize must be one of ${modes.join(', ')}.`);
 				}
+
 				result.autocapitalize = item.autocapitalize;
 			}
+
 			if (item.autocorrect !== undefined) {
 				result.autocorrect = expect(item, 'autocorrect', where, 'boolean');
 			}
+
 			break;
 		case 'toggle':
 			result.default = expect(item, 'default', where, 'boolean', false);
@@ -216,19 +256,24 @@ function normalizeItem(item, where, seenKeys, depth) {
 		case 'multilist': {
 			result.options = normalizeOptions(item.options, where);
 			const values = result.options.map((option) => option.value);
+
 			if (type === 'list') {
 				if (item.default !== undefined) {
 					const value = expect(item, 'default', where, 'string');
+
 					if (!values.includes(value)) {
 						throw new PreferencesConfigError(`${where}.default "${value}" is not one of the option values.`);
 					}
+
 					result.default = value;
 				}
 			} else {
 				const defaults = item.default === undefined ? [] : item.default;
+
 				if (!Array.isArray(defaults) || defaults.some((value) => typeof value !== 'string')) {
 					throw new PreferencesConfigError(`${where}.default must be an array of strings.`);
 				}
+
 				for (const value of defaults) {
 					if (!values.includes(value)) {
 						throw new PreferencesConfigError(
@@ -236,8 +281,10 @@ function normalizeItem(item, where, seenKeys, depth) {
 						);
 					}
 				}
+
 				result.default = defaults;
 			}
+
 			break;
 		}
 		case 'slider': {
@@ -246,16 +293,19 @@ function normalizeItem(item, where, seenKeys, depth) {
 			if (result.min >= result.max) {
 				throw new PreferencesConfigError(`${where}.min must be less than max.`);
 			}
+
 			result.default = expect(item, 'default', where, 'number', result.min);
 			if (result.default < result.min || result.default > result.max) {
 				throw new PreferencesConfigError(`${where}.default must be between min and max.`);
 			}
+
 			if (item.step !== undefined) {
 				result.step = expect(item, 'step', where, 'number');
 				if (result.step <= 0) {
 					throw new PreferencesConfigError(`${where}.step must be positive.`);
 				}
 			}
+
 			for (const field of ['min', 'max', 'default', 'step']) {
 				if (result[field] !== undefined && !Number.isInteger(result[field])) {
 					throw new PreferencesConfigError(
@@ -263,6 +313,7 @@ function normalizeItem(item, where, seenKeys, depth) {
 					);
 				}
 			}
+
 			break;
 		}
 		case 'label':
@@ -270,8 +321,10 @@ function normalizeItem(item, where, seenKeys, depth) {
 			if (!result.title) {
 				throw new PreferencesConfigError(`${where}.title is required for a label.`);
 			}
+
 			break;
 	}
+
 	return result;
 }
 
@@ -286,14 +339,19 @@ function normalizeOverride(override, where, platform) {
 	if (override === false) {
 		return false;
 	}
+
 	if (!override || typeof override !== 'object' || Array.isArray(override)) {
 		throw new PreferencesConfigError(`${where} must be false or an object.`);
 	}
+
 	const result = {};
+
 	for (const name of Object.keys(override)) {
 		const value = override[name];
+
 		if (name === 'widget') {
 			const example = platform === 'ios' ? 'PSRadioGroupSpecifier' : 'CheckBoxPreference';
+
 			if (typeof value !== 'string' || !value) {
 				throw new PreferencesConfigError(`${where}.widget must be a non-empty string such as "${example}".`);
 			}
@@ -308,8 +366,10 @@ function normalizeOverride(override, where, platform) {
 				throw new PreferencesConfigError(`${where}.${name} must be a string, number, boolean or null.`);
 			}
 		}
+
 		result[name] = value;
 	}
+
 	return result;
 }
 
@@ -317,23 +377,29 @@ function isPlistValue(value) {
 	if (typeof value === 'string' || typeof value === 'boolean') {
 		return true;
 	}
+
 	if (typeof value === 'number') {
 		return Number.isFinite(value);
 	}
+
 	return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
 function expect(item, field, where, type, fallback) {
 	const value = item[field];
+
 	if (value === undefined) {
 		if (fallback === undefined) {
 			throw new PreferencesConfigError(`${where}.${field} is required.`);
 		}
+
 		return fallback;
 	}
+
 	if (typeof value !== type || (type === 'number' && !Number.isFinite(value))) {
 		throw new PreferencesConfigError(`${where}.${field} must be a ${type}.`);
 	}
+
 	return value;
 }
 
@@ -341,29 +407,37 @@ function normalizeOptions(options, where) {
 	if (!Array.isArray(options) || !options.length) {
 		throw new PreferencesConfigError(`${where}.options must be a non-empty array.`);
 	}
+
 	const seen = new Set();
+
 	return options.map((option, index) => {
 		let value;
 		let title;
+
 		if (typeof option === 'string') {
 			value = option;
 			title = option;
 		} else if (option && typeof option === 'object' && typeof option.value === 'string') {
 			const extra = Object.keys(option).find((name) => name !== 'value' && name !== 'title');
+
 			if (extra !== undefined) {
 				throw new PreferencesConfigError(
 					`${where}.options[${index}].${extra} is not an option field; use { value, title }.`,
 				);
 			}
+
 			value = option.value;
 			title = typeof option.title === 'string' ? option.title : option.value;
 		} else {
 			throw new PreferencesConfigError(`${where}.options[${index}] must be a string or { value, title }.`);
 		}
+
 		if (seen.has(value)) {
 			throw new PreferencesConfigError(`${where}.options has a duplicate value "${value}".`);
 		}
+
 		seen.add(value);
+
 		return { value, title };
 	});
 }
@@ -388,6 +462,7 @@ function collectStored(items, result = []) {
 			result.push(item);
 		}
 	}
+
 	return result;
 }
 
@@ -400,6 +475,7 @@ function collectScreens(items, result = []) {
 			collectScreens(item.items, result);
 		}
 	}
+
 	return result;
 }
 
@@ -419,28 +495,36 @@ function plistValue(value, indent) {
 	if (typeof value === 'boolean') {
 		return `${indent}<${value}/>`;
 	}
+
 	if (typeof value === 'number') {
 		return Number.isInteger(value) ? `${indent}<integer>${value}</integer>` : `${indent}<real>${value}</real>`;
 	}
+
 	if (Array.isArray(value)) {
 		if (!value.length) {
 			return `${indent}<array/>`;
 		}
+
 		return `${indent}<array>\n${value.map((entry) => plistValue(entry, indent + '\t')).join('\n')}\n${indent}</array>`;
 	}
+
 	return `${indent}<string>${escapeXml(value)}</string>`;
 }
 
 function plistDict(entries, indent) {
 	const lines = [`${indent}<dict>`];
+
 	for (const [key, value] of entries) {
 		if (value === undefined) {
 			continue;
 		}
+
 		lines.push(`${indent}\t<key>${escapeXml(key)}</key>`);
 		lines.push(plistValue(value, indent + '\t'));
 	}
+
 	lines.push(`${indent}</dict>`);
+
 	return lines.join('\n');
 }
 
@@ -449,19 +533,26 @@ function iosSpecifiers(item, diagnostics) {
 	if (item.ios === false) {
 		return [];
 	}
+
 	const override = item.ios || {};
+
 	if (item.type === 'multilist' && !override.widget) {
 		diagnostics.notes.push(
 			`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API. Set "ios": false on it to make that explicit.`,
 		);
+
 		return [];
 	}
+
 	const specifiers = iosBaseSpecifiers(item, diagnostics);
+
 	if (!specifiers.length || !Object.keys(override).length) {
 		return specifiers;
 	}
+
 	// Overrides apply to the item's own specifier, which is always the first one emitted.
 	specifiers[0] = applyOverrides(specifiers[0], override, 'widget', 'Type');
+
 	return specifiers;
 }
 
@@ -471,18 +562,22 @@ function applyOverrides(entries, override, controlField, controlName) {
 		name,
 		name === controlName && override[controlField] ? override[controlField] : value,
 	]);
+
 	for (const name of Object.keys(override)) {
 		if (name === controlField) {
 			continue;
 		}
+
 		const value = override[name] === null ? undefined : override[name];
 		const index = merged.findIndex(([existing]) => existing === name);
+
 		if (index === -1) {
 			merged.push([name, value]);
 		} else {
 			merged[index] = [name, value];
 		}
 	}
+
 	return merged;
 }
 
@@ -570,6 +665,7 @@ function iosBaseSpecifiers(item, diagnostics) {
 				],
 			];
 	}
+
 	return [];
 }
 
@@ -607,6 +703,7 @@ function iosSiblings(items, diagnostics) {
 			section = [];
 		}
 	};
+
 	for (const item of visible) {
 		if (item.type === 'group') {
 			flush();
@@ -616,7 +713,9 @@ function iosSiblings(items, diagnostics) {
 			section.push(item);
 		}
 	}
+
 	flush();
+
 	return result;
 }
 
@@ -624,37 +723,46 @@ function iosSiblings(items, diagnostics) {
 function iosSection(items, diagnostics, afterGroup) {
 	const radios = items.filter(isIosRadioGroup);
 	const others = items.filter((item) => !isIosRadioGroup(item));
+
 	for (const radio of radios) {
 		const index = items.indexOf(radio);
+
 		if (items.slice(index + 1).some((item) => !isIosRadioGroup(item))) {
 			diagnostics.notes.push(
 				`"${radio.key}": iOS renders a PSRadioGroupSpecifier as its own section, so it was moved to the end of its group in Settings.bundle. Put it last in preferences.json to match.`,
 			);
 		}
 	}
+
 	const specifiers = [];
 	const hasRows = others.some((item) => !isIosScreen(item));
 	let previousWasScreen = false;
+
 	others.forEach((item, index) => {
 		const screen = isIosScreen(item);
+
 		if (screen && !previousWasScreen && (index > 0 ? hasRows : afterGroup)) {
 			specifiers.push(IOS_UNTITLED_GROUP);
 		}
+
 		if (hasRows && !screen && previousWasScreen) {
 			specifiers.push(IOS_UNTITLED_GROUP);
 		}
+
 		specifiers.push(...iosSpecifiers(item, diagnostics));
 		previousWasScreen = screen;
 	});
 	for (const radio of radios) {
 		specifiers.push(...iosSpecifiers(radio, diagnostics));
 	}
+
 	return specifiers;
 }
 
 function renderPlist(items, diagnostics, source = DEFAULT_CONFIG_FILE) {
 	const specifiers = iosSiblings(items, diagnostics);
 	const body = specifiers.map((entries) => plistDict(entries, '\t\t')).join('\n');
+
 	return [
 		'<?xml version="1.0" encoding="UTF-8"?>',
 		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -679,11 +787,14 @@ function renderIos(config, diagnostics = { warnings: [], notes: [] }) {
 	if (Array.isArray(diagnostics)) {
 		diagnostics = { warnings: diagnostics, notes: diagnostics };
 	}
+
 	const files = new Map();
+
 	files.set('Root.plist', renderPlist(config.items, diagnostics, config.source));
 	for (const screen of collectScreens(config.items)) {
 		files.set(`${screen.key}.plist`, renderPlist(screen.items, diagnostics, config.source));
 	}
+
 	return files;
 }
 
@@ -699,6 +810,7 @@ function androidAttributes(pairs) {
 	const ordered = present
 		.filter(([name]) => name !== 'app:iconSpaceReserved')
 		.concat(present.filter(([name]) => name === 'app:iconSpaceReserved'));
+
 	return ordered.map(([name, value]) => `${name}="${escapeXml(value)}"`);
 }
 
@@ -707,12 +819,15 @@ function androidElement(tag, pairs, children, indent, override) {
 		tag = override.widget || tag;
 		pairs = applyOverrides(pairs, override, 'widget', null);
 	}
+
 	const attrs = androidAttributes(pairs)
 		.map((attribute) => `\n${indent}    ${attribute}`)
 		.join('');
+
 	if (!children || !children.length) {
 		return `${indent}<${tag}${attrs} />`;
 	}
+
 	return `${indent}<${tag}${attrs}>\n\n${children.join('\n\n')}\n${indent}</${tag}>`;
 }
 
@@ -720,12 +835,14 @@ function androidPreference(item, indent) {
 	if (item.android === false) {
 		return undefined;
 	}
+
 	const common = [
 		['android:key', item.key],
 		['android:title', item.title],
 		['android:summary', item.summary],
 		['app:iconSpaceReserved', 'false'],
 	];
+
 	switch (item.type) {
 		case 'group':
 			return androidElement(
@@ -822,6 +939,7 @@ function androidPreference(item, indent) {
 				item.android,
 			);
 	}
+
 	return undefined;
 }
 
@@ -847,19 +965,23 @@ function renderAndroidXml(config) {
 
 function renderAndroidArrays(config) {
 	const arrays = [];
+
 	for (const item of collectStored(config.items)) {
 		if (item.type !== 'list' && item.type !== 'multilist') {
 			continue;
 		}
+
 		arrays.push([arrayName(item, 'entries'), item.options.map((option) => option.title)]);
 		arrays.push([arrayName(item, 'values'), item.options.map((option) => option.value)]);
 		if (item.type === 'multilist' && item.default.length) {
 			arrays.push([arrayName(item, 'default'), item.default]);
 		}
 	}
+
 	if (!arrays.length) {
 		return undefined;
 	}
+
 	const body = arrays
 		.map(
 			([name, values]) =>
@@ -867,6 +989,7 @@ function renderAndroidArrays(config) {
 		)
 		.join('\n');
 	const source = config.source || DEFAULT_CONFIG_FILE;
+
 	return [
 		'<?xml version="1.0" encoding="utf-8"?>',
 		`<!-- ${GENERATED_MARKER} from ${source}. Do not edit; edit ${source} instead. -->`,
@@ -879,11 +1002,14 @@ function renderAndroidArrays(config) {
 
 function renderAndroid(config) {
 	const files = new Map();
+
 	files.set(`xml/${config.output.androidResource}.xml`, renderAndroidXml(config));
 	const arrays = renderAndroidArrays(config);
+
 	if (arrays !== undefined) {
 		files.set(`values/${config.output.androidResource}_arrays.xml`, arrays);
 	}
+
 	return files;
 }
 
@@ -906,6 +1032,7 @@ function tsType(item) {
 		case 'multilist':
 			return 'string[]';
 	}
+
 	return 'never';
 }
 
@@ -913,6 +1040,7 @@ function tsValue(value) {
 	if (Array.isArray(value)) {
 		return `[${value.map(tsString).join(', ')}]`;
 	}
+
 	return typeof value === 'string' ? tsString(value) : String(value);
 }
 
@@ -938,6 +1066,7 @@ function renderTypeScript(config) {
 			.join(', ')}] });`,
 		'',
 	];
+
 	return lines.join('\n');
 }
 
@@ -961,14 +1090,19 @@ function isHandWritten(existing) {
 
 function writeIfChanged(file, content, result, force) {
 	const existing = readIfExists(file);
+
 	if (existing === content) {
 		result.unchanged.push(file);
+
 		return;
 	}
+
 	if (isHandWritten(existing) && !force) {
 		result.skipped.push(file);
+
 		return;
 	}
+
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, content);
 	result.written.push(file);
@@ -977,22 +1111,27 @@ function writeIfChanged(file, content, result, force) {
 /** Removes plists this tool generated earlier that no longer correspond to a screen. */
 function pruneStalePlists(bundleDir, keep, result) {
 	let entries;
+
 	try {
 		entries = fs.readdirSync(bundleDir);
 	} catch (error) {
 		return;
 	}
+
 	for (const entry of entries) {
 		if (!entry.endsWith('.plist') || keep.has(entry)) {
 			continue;
 		}
+
 		const file = path.join(bundleDir, entry);
 		let content = '';
+
 		try {
 			content = fs.readFileSync(file, 'utf8');
 		} catch (error) {
 			continue;
 		}
+
 		if (content.includes(GENERATED_MARKER)) {
 			fs.unlinkSync(file);
 			result.removed.push(file);
@@ -1029,30 +1168,37 @@ function generate(config, options) {
 			// Default location: honour a custom App_Resources path from the CLI.
 			return path.join(appResourcesDir, path.relative('App_Resources', fallback));
 		}
+
 		return path.resolve(projectDir, configured);
 	};
 
 	let iosDir;
+
 	if (platforms.includes('ios') && config.output.ios !== false) {
 		iosDir = resolveOutput(config.output.ios, DEFAULT_OUTPUT.ios);
 		for (const [name, content] of renderIos(config, { warnings, notes })) {
 			outputs.set(path.join(iosDir, name), content);
 		}
 	}
+
 	if (platforms.includes('android') && config.output.android !== false) {
 		const resDir = resolveOutput(config.output.android, DEFAULT_OUTPUT.android);
+
 		for (const [name, content] of renderAndroid(config)) {
 			outputs.set(path.join(resDir, name), content);
 		}
 	}
+
 	if (config.output.typescript) {
 		outputs.set(path.resolve(projectDir, config.output.typescript), renderTypeScript(config));
 	}
 
 	const result = { written: [], unchanged: [], skipped: [], removed: [], warnings, notes };
+
 	if (options.check) {
 		for (const [file, content] of outputs) {
 			const existing = readIfExists(file);
+
 			if (existing === content) {
 				result.unchanged.push(file);
 			} else if (isHandWritten(existing) && !options.force) {
@@ -1061,11 +1207,14 @@ function generate(config, options) {
 				result.written.push(file);
 			}
 		}
+
 		return result;
 	}
+
 	for (const [file, content] of outputs) {
 		writeIfChanged(file, content, result, options.force);
 	}
+
 	if (iosDir) {
 		pruneStalePlists(
 			iosDir,
@@ -1077,6 +1226,7 @@ function generate(config, options) {
 			result,
 		);
 	}
+
 	return result;
 }
 

@@ -32,14 +32,17 @@ Opting out
 
 function parseArgs(argv) {
 	const options = { command: undefined, platforms: undefined };
+
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
 		const next = () => {
 			if (i + 1 >= argv.length) {
 				throw new Error(`${arg} needs a value.`);
 			}
+
 			return argv[++i];
 		};
+
 		switch (arg) {
 			case '--config':
 				options.config = next();
@@ -52,9 +55,11 @@ function parseArgs(argv) {
 				break;
 			case '--platform': {
 				const platform = next();
+
 				if (platform !== 'ios' && platform !== 'android') {
 					throw new Error('--platform must be ios or android.');
 				}
+
 				options.platforms = [platform];
 				break;
 			}
@@ -78,12 +83,15 @@ function parseArgs(argv) {
 				if (arg.startsWith('-')) {
 					throw new Error(`Unknown option ${arg}.`);
 				}
+
 				if (options.command) {
 					throw new Error(`Unexpected argument ${arg}.`);
 				}
+
 				options.command = arg;
 		}
 	}
+
 	return options;
 }
 
@@ -95,20 +103,25 @@ function report(projectDir, result, check) {
 	for (const warning of result.warnings) {
 		console.warn(`ns-preferences: warning: ${warning}`);
 	}
+
 	for (const note of result.notes || []) {
 		console.log(`ns-preferences: note: ${note}`);
 	}
+
 	for (const file of result.written) {
 		console.log(`ns-preferences: ${check ? 'out of date' : 'wrote'} ${relative(projectDir, file)}`);
 	}
+
 	for (const file of result.removed) {
 		console.log(`ns-preferences: removed ${relative(projectDir, file)}`);
 	}
+
 	for (const file of result.skipped) {
 		console.log(
 			`ns-preferences: kept ${relative(projectDir, file)} (hand-written, no generated header; pass --force to overwrite)`,
 		);
 	}
+
 	if (!result.written.length && !result.removed.length && !result.skipped.length) {
 		console.log('ns-preferences: everything is up to date.');
 	}
@@ -125,24 +138,33 @@ function registerHook(projectDir) {
 	const configPath = ['nativescript.config.ts', 'nativescript.config.js']
 		.map((name) => path.join(projectDir, name))
 		.find((file) => fs.existsSync(file));
+
 	if (!configPath) {
 		return { status: 'manual' };
 	}
+
 	const source = fs.readFileSync(configPath, 'utf8');
+
 	if (source.includes('hooks/before-prepare.cjs')) {
 		return { status: 'present', configPath };
 	}
+
 	if (/\bhooks\s*:/.test(source)) {
 		return { status: 'manual', configPath, reason: 'it already declares hooks' };
 	}
+
 	const match = /(export\s+default\s*\{|module\.exports\s*=\s*\{)([ \t]*\r?\n)([ \t]*)/.exec(source);
+
 	if (!match) {
 		return { status: 'manual', configPath, reason: 'its shape was not recognised' };
 	}
+
 	const indent = match[3] || '  ';
 	const insertAt = match.index + match[1].length + match[2].length;
 	const updated = source.slice(0, insertAt) + indent + HOOK_LINE + match[2] + source.slice(insertAt);
+
 	fs.writeFileSync(configPath, updated);
+
 	return { status: 'added', configPath };
 }
 
@@ -208,15 +230,19 @@ function init(projectDir, appDir, options) {
 		(options.config && fs.existsSync(path.resolve(projectDir, options.config))
 			? path.resolve(projectDir, options.config)
 			: undefined);
+
 	if (existing) {
 		throw new Error(`${relative(projectDir, existing)} already exists.`);
 	}
+
 	if (options.typescript && !options.json) {
 		throw new Error('--typescript only applies with --json; a definition file is the typed module itself.');
 	}
+
 	let configFile;
 	let importLine;
 	const json = options.json || (options.config !== undefined && options.config.endsWith('.json'));
+
 	if (json) {
 		configFile = options.config
 			? path.resolve(projectDir, options.config)
@@ -229,6 +255,7 @@ function init(projectDir, appDir, options) {
 			output: { typescript },
 			items: STARTER_ITEMS,
 		};
+
 		fs.mkdirSync(path.dirname(configFile), { recursive: true });
 		fs.writeFileSync(configFile, JSON.stringify(starter, null, 2) + '\n');
 		importLine = `import { settings } from './${path.basename(typescript, '.ts')}';`;
@@ -240,9 +267,11 @@ function init(projectDir, appDir, options) {
 		fs.writeFileSync(configFile, STARTER_TS);
 		importLine = "import settings from './app.preferences';";
 	}
+
 	console.log(`ns-preferences: created ${relative(projectDir, configFile)}`);
 
 	const hook = registerHook(projectDir);
+
 	if (hook.status === 'added') {
 		console.log(`ns-preferences: added the before-prepare hook to ${relative(projectDir, hook.configPath)}`);
 	} else if (hook.status === 'present') {
@@ -250,6 +279,7 @@ function init(projectDir, appDir, options) {
 	}
 
 	const result = generator.generate(generator.loadConfig(configFile, { projectDir }), { projectDir });
+
 	for (const file of result.written) {
 		console.log(`ns-preferences: wrote ${relative(projectDir, file)}`);
 	}
@@ -259,11 +289,13 @@ function init(projectDir, appDir, options) {
 		const where = hook.configPath
 			? `${relative(projectDir, hook.configPath)} was not changed because ${hook.reason}`
 			: 'no nativescript.config.ts was found';
+
 		console.log(`${where}. Add this to the config object so every build regenerates the platform files:`);
 		console.log('');
 		console.log(`  ${HOOK_LINE}`);
 		console.log('');
 	}
+
 	console.log(`Done. Edit ${relative(projectDir, configFile)} to describe your settings, then use them anywhere:`);
 	console.log('');
 	console.log(`  ${importLine}`);
@@ -273,36 +305,50 @@ function init(projectDir, appDir, options) {
 
 function main(argv) {
 	let options;
+
 	try {
 		options = parseArgs(argv);
 	} catch (error) {
 		console.error(`ns-preferences: ${error.message}`);
 		console.error(USAGE);
+
 		return 2;
 	}
+
 	const command = options.command || 'help';
+
 	if (command === 'help') {
 		console.log(USAGE);
+
 		return 0;
 	}
+
 	const projectDir = path.resolve(options.project || process.cwd());
+
 	try {
 		const appDir = options.appDir ? path.resolve(projectDir, options.appDir) : generator.resolveAppDir(projectDir);
+
 		if (command === 'init') {
 			init(projectDir, appDir, options);
+
 			return 0;
 		}
+
 		if (command !== 'generate' && command !== 'check') {
 			console.error(`ns-preferences: unknown command "${command}".`);
 			console.error(USAGE);
+
 			return 2;
 		}
+
 		const configFile = generator.findDefinition({ projectDir, appDir, config: options.config });
+
 		if (!configFile) {
 			throw new Error(
 				`no ${generator.DEFINITION_FILES[0]} or ${generator.DEFAULT_CONFIG_FILE} found. Run "npx ns-preferences init" to create one.`,
 			);
 		}
+
 		const config = generator.loadConfig(configFile, { projectDir });
 		const result = generator.generate(config, {
 			projectDir,
@@ -311,10 +357,13 @@ function main(argv) {
 			check: command === 'check',
 			force: options.force,
 		});
+
 		report(projectDir, result, command === 'check');
+
 		return command === 'check' && result.written.length ? 1 : 0;
 	} catch (error) {
 		console.error(`ns-preferences: ${error.message}`);
+
 		return 1;
 	}
 }

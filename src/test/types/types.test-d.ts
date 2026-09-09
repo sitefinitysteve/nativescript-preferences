@@ -59,6 +59,7 @@ const topics: string[] = settings.get('notify_topics');
 const name: string = settings.get('display_name');
 const analytics: boolean = settings.get('analytics');
 const title: string | undefined = settings.definition.title;
+
 settings.set('theme', 'dark');
 settings.set('accent', null);
 settings.onChange('theme', (value: 'system' | 'light' | 'dark') => value);

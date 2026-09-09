@@ -271,6 +271,7 @@ export declare const rootKeyProperty: Property<PreferencesView, string>;
 
 /** The `xmlns` value that resolves to this plugin in XML: `xmlns:prefs="nativescript-preferences"`. */
 export declare const xmlNamespace: string;
+
 /**
  * Registers the plugin in the runtime module registry so `<prefs:PreferencesView>` resolves from
  * XML. Called automatically when the plugin is imported; only call it yourself to expose extra members.
@@ -281,6 +282,7 @@ export declare function registerXmlNamespace(members: Record<string, unknown>): 
  * They are left out of `keys()`, `getAll()` and change events unless the app declared the key itself.
  */
 export declare const systemKeyPattern: RegExp;
+
 export declare function isPreferenceValue(value: unknown): value is PreferenceValue;
 export declare function coerceString(value: PreferenceValue | undefined, fallback: string): string;
 export declare function coerceNumber(value: PreferenceValue | undefined, fallback: number): number;

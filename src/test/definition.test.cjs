@@ -53,11 +53,14 @@ export default definePreferences({ title: 'Demo', items: ITEMS });
 
 function temp(files) {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-preferences-definition-'));
+
 	for (const [name, content] of Object.entries(files)) {
 		const file = path.join(dir, name);
+
 		fs.mkdirSync(path.dirname(file), { recursive: true });
 		fs.writeFileSync(file, content);
 	}
+
 	return dir;
 }
 
@@ -92,6 +95,7 @@ test('a TypeScript definition normalizes to the same config as the equivalent JS
 	const dir = tsProject();
 	const fromTs = generator.loadConfig(path.join(dir, 'app/app.preferences.ts'), { projectDir });
 	const fromJson = generator.normalizeConfig({ title: 'Demo', items });
+
 	assert.equal(fromTs.source, 'app.preferences.ts');
 	assert.deepEqual({ ...fromTs, source: undefined }, { ...fromJson, source: undefined });
 });
@@ -102,10 +106,12 @@ test('the same definition renders the same native files as JSON, apart from the 
 	const fromJson = generator.normalizeConfig({ title: 'Demo', items });
 	const strip = (text) =>
 		text.replace(/from (app\.preferences\.ts|preferences\.json)\. Do not edit; edit \1 instead\./, '');
+
 	for (const [name, content] of generator.renderIos(fromTs)) {
 		assert.equal(strip(content), strip(generator.renderIos(fromJson).get(name)), name);
 		assert.match(content, /from app\.preferences\.ts\. Do not edit; edit app\.preferences\.ts instead\./);
 	}
+
 	for (const [name, content] of generator.renderAndroid(fromTs)) {
 		assert.equal(strip(content), strip(generator.renderAndroid(fromJson).get(name)), name);
 	}
@@ -116,6 +122,7 @@ test('the loader stubs both package names and rejects everything else', () => {
 		'app/app.preferences.ts':
 			"import { definePreferences } from '@nativescript/preferences';\nexport default definePreferences({ items: [] });\n",
 	});
+
 	assert.deepEqual(generator.loadDefinition(path.join(scoped, 'app/app.preferences.ts'), { projectDir }), {
 		items: [],
 	});
@@ -124,6 +131,7 @@ test('the loader stubs both package names and rejects everything else', () => {
 		'app/app.preferences.ts':
 			"import { definePreferences } from 'nativescript-preferences';\nimport { Application } from '@nativescript/core';\nconsole.log(Application);\nexport default definePreferences({ items: [] });\n",
 	});
+
 	assert.throws(
 		() => generator.loadDefinition(path.join(core, 'app/app.preferences.ts'), { projectDir }),
 		/cannot import "@nativescript\/core"\. Keep it self-contained/,
@@ -133,6 +141,7 @@ test('the loader stubs both package names and rejects everything else', () => {
 		'app/app.preferences.ts':
 			"import { definePreferences } from 'nativescript-preferences';\nimport fs from 'fs';\nconsole.log(fs);\nexport default definePreferences({ items: [] });\n",
 	});
+
 	assert.throws(
 		() => generator.loadDefinition(path.join(bare, 'app/app.preferences.ts'), { projectDir }),
 		/cannot import "fs"/,
@@ -146,6 +155,7 @@ test('a project on TypeScript 7 (no compiler API) gets a clear message, another 
 		'node_modules/typescript/package.json': '{ "name": "typescript", "version": "7.0.2", "main": "index.js" }',
 		'node_modules/typescript/index.js': "module.exports = { version: '7.0.2' };",
 	});
+
 	assert.throws(
 		() =>
 			generator.loadDefinition(path.join(seven, 'app/app.preferences.ts'), {
@@ -173,12 +183,14 @@ test('a CommonJS cycle sees the current module.exports, not a stale object', () 
 	});
 	// items.ts runs while app.preferences.ts is half-evaluated, so `shared` is not there yet; the point is that it gets the live exports object.
 	const def = generator.loadDefinition(path.join(dir, 'app/app.preferences.ts'), { projectDir });
+
 	assert.equal(def.items[0].key, 'k');
 	const reassigned = temp({
 		'app/app.preferences.js': "const b = require('./b');\nmodule.exports = { items: b.items };\n",
 		'app/b.js':
 			"const a = require('./app.preferences');\nexports.items = [{ key: 'seen_' + (typeof a), type: 'toggle', title: 'T' }];\n",
 	});
+
 	assert.equal(
 		generator.loadDefinition(path.join(reassigned, 'app/app.preferences.js'), { projectDir }).items[0].key,
 		'seen_object',
@@ -190,6 +202,7 @@ test('a definition without a default export is an error', () => {
 		'app/app.preferences.ts':
 			"import { definePreferences } from 'nativescript-preferences';\nexport const prefs = definePreferences({ items: [] });\n",
 	});
+
 	assert.throws(
 		() => generator.loadDefinition(path.join(dir, 'app/app.preferences.ts'), { projectDir }),
 		/must `export default definePreferences/,
@@ -202,6 +215,7 @@ test('a CommonJS .js definition works through module.exports', () => {
 			"const { definePreferences } = require('nativescript-preferences');\nmodule.exports = definePreferences({ items: [{ key: 'on', type: 'toggle', title: 'On', default: true }] });\n",
 	});
 	const config = generator.loadConfig(path.join(dir, 'app/app.preferences.js'), { projectDir });
+
 	assert.equal(config.items[0].key, 'on');
 	assert.equal(config.source, 'app.preferences.js');
 });
@@ -211,6 +225,7 @@ test('a missing relative helper and a syntax error name the file', () => {
 		'app/app.preferences.ts':
 			"import { definePreferences } from 'nativescript-preferences';\nimport { X } from './nope';\nexport default definePreferences({ items: X });\n",
 	});
+
 	assert.throws(
 		() => generator.loadDefinition(path.join(missing, 'app/app.preferences.ts'), { projectDir }),
 		/app\.preferences\.ts: cannot find "\.\/nope"/,
@@ -219,6 +234,7 @@ test('a missing relative helper and a syntax error name the file', () => {
 		'app/app.preferences.ts':
 			"import { definePreferences } from 'nativescript-preferences';\nexport default definePreferences({ items: [ );\n",
 	});
+
 	assert.throws(
 		() => generator.loadDefinition(path.join(broken, 'app/app.preferences.ts'), { projectDir }),
 		/app\.preferences\.ts: /,
@@ -266,6 +282,7 @@ test('validation errors from a definition are prefixed with its file name', () =
 
 test('findDefinition prefers the app folder, then the project root, then preferences.json', () => {
 	const dir = temp({ 'preferences.json': '{"items":[]}' });
+
 	assert.equal(
 		generator.findDefinition({ projectDir: dir, appDir: path.join(dir, 'app') }),
 		path.join(dir, 'preferences.json'),
@@ -294,24 +311,29 @@ test('resolveAppDir reads appPath from nativescript.config.ts and falls back to 
 		'nativescript.config.ts':
 			"import { NativeScriptConfig } from '@nativescript/core';\nexport default { id: 'x', appPath: 'source' } as NativeScriptConfig;\n",
 	});
+
 	assert.equal(generator.resolveAppDir(configured), path.join(configured, 'source'));
 	const computed = temp({
 		'nativescript.config.ts':
 			"import path from 'node:path';\nexport default { id: 'x', appPath: path.join('source', 'mobile') };\n",
 	});
+
 	assert.equal(
 		generator.resolveAppDir(computed),
 		path.join(computed, 'source', 'mobile'),
 		'Node built-ins work inside the config',
 	);
 	const broken = temp({ 'nativescript.config.ts': "export default { id: 'x', appPath: (\n" });
+
 	assert.throws(
 		() => generator.resolveAppDir(broken),
 		/could not read nativescript\.config\.ts to find appPath .*Pass --app-dir/,
 	);
 	const src = temp({ 'src/app.ts': '' });
+
 	assert.equal(generator.resolveAppDir(src), path.join(src, 'src'));
 	const plain = temp({});
+
 	assert.equal(generator.resolveAppDir(plain), path.join(plain, 'app'), 'falls back to app');
 });
 
@@ -320,6 +342,7 @@ test('resolveAppDir reads appPath from nativescript.config.ts and falls back to 
 test('generate and check work from a TypeScript definition', () => {
 	const dir = tsProject();
 	const generated = run(dir, 'generate');
+
 	assert.equal(generated.code, 0, generated.out);
 	assert.match(generated.out, /wrote App_Resources\/iOS\/Settings\.bundle\/Root\.plist/);
 	assert.match(generated.out, /wrote App_Resources\/iOS\/Settings\.bundle\/advanced\.plist/);
@@ -334,6 +357,7 @@ test('generate and check work from a TypeScript definition', () => {
 		`export const ITEMS = ${JSON.stringify([{ key: 'x', type: 'toggle', title: 'X' }])} as const;\n`,
 	);
 	const stale = run(dir, 'check');
+
 	assert.equal(stale.code, 1, 'a changed helper makes the output stale');
 	assert.match(stale.out, /out of date/);
 });
@@ -343,6 +367,7 @@ test('init creates a TypeScript definition by default and JSON with --json', () 
 		'nativescript.config.ts': "export default {\n  id: 'org.example.app',\n  appPath: 'app',\n};\n",
 	});
 	const out = run(fresh, 'init');
+
 	assert.equal(out.code, 0, out.out);
 	assert.match(out.out, /created app\/app\.preferences\.ts/);
 	assert.match(out.out, /import settings from '\.\/app\.preferences'/);
@@ -357,6 +382,7 @@ test('init creates a TypeScript definition by default and JSON with --json', () 
 
 	const json = temp({});
 	const jsonOut = run(json, 'init', '--json');
+
 	assert.equal(jsonOut.code, 0, jsonOut.out);
 	assert.match(jsonOut.out, /created preferences\.json/);
 	assert.match(jsonOut.out, /import \{ settings \} from '\.\/settings\.generated'/);
@@ -365,15 +391,18 @@ test('init creates a TypeScript definition by default and JSON with --json', () 
 	assert.match(run(temp({}), 'init', '--typescript', 'x.ts').out, /--typescript only applies with --json/);
 
 	const custom = temp({});
+
 	assert.equal(run(custom, 'init', '--json', '--config', 'config/prefs.json').code, 0);
 	assert.ok(fs.existsSync(path.join(custom, 'config/prefs.json')), '--config is honoured for JSON init');
 	const customTs = temp({});
+
 	assert.equal(run(customTs, 'init', '--config', 'src/settings.preferences.ts').code, 0);
 	assert.match(fs.readFileSync(path.join(customTs, 'src/settings.preferences.ts'), 'utf8'), /definePreferences/);
 });
 
 test('generate without any definition explains what to do', () => {
 	const out = run(temp({}), 'generate');
+
 	assert.equal(out.code, 1);
 	assert.match(out.out, /no app\.preferences\.ts or preferences\.json found/);
 });

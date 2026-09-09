@@ -7,7 +7,13 @@ declare namespace androidx {
 			static getDefaultSharedPreferences(context: android.content.Context): android.content.SharedPreferences;
 			static getDefaultSharedPreferencesName(context: android.content.Context): string;
 			static setDefaultValues(context: android.content.Context, resId: number, readAgain: boolean): void;
-			static setDefaultValues(context: android.content.Context, sharedPreferencesName: string, sharedPreferencesMode: number, resId: number, readAgain: boolean): void;
+			static setDefaultValues(
+				context: android.content.Context,
+				sharedPreferencesName: string,
+				sharedPreferencesMode: number,
+				resId: number,
+				readAgain: boolean,
+			): void;
 			getSharedPreferences(): android.content.SharedPreferences;
 			setSharedPreferencesName(name: string): void;
 			getSharedPreferencesName(): string;

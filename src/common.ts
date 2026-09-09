@@ -98,12 +98,15 @@ export function registerXmlNamespace(members: Record<string, unknown>): void {
 		registerModule?: (name: string, loader: () => unknown) => void;
 		moduleExists?: (name: string) => boolean;
 	};
+
 	if (typeof g.registerModule !== 'function') {
 		return;
 	}
+
 	if (typeof g.moduleExists === 'function' && g.moduleExists(xmlNamespace)) {
 		return;
 	}
+
 	g.registerModule(xmlNamespace, () => members);
 }
 
@@ -123,6 +126,7 @@ export function valuesEqual(a: PreferenceValue | undefined, b: PreferenceValue |
 	if (Array.isArray(a) || Array.isArray(b)) {
 		return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, index) => item === b[index]);
 	}
+
 	return a === b;
 }
 
@@ -130,6 +134,7 @@ export function coerceString(value: PreferenceValue | undefined, fallback: strin
 	if (value === undefined) {
 		return fallback;
 	}
+
 	return Array.isArray(value) ? value.join(',') : String(value);
 }
 
@@ -142,6 +147,7 @@ export function coerceNumber(value: PreferenceValue | undefined, fallback: numbe
 		case 'string': {
 			const trimmed = value.trim();
 			const parsed = Number(trimmed);
+
 			return trimmed !== '' && Number.isFinite(parsed) ? parsed : fallback;
 		}
 		default:
@@ -157,9 +163,11 @@ export function coerceBoolean(value: PreferenceValue | undefined, fallback: bool
 			return value !== 0;
 		case 'string': {
 			const normalized = value.trim().toLowerCase();
+
 			if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
 				return true;
 			}
+
 			if (
 				normalized === 'false' ||
 				normalized === '0' ||
@@ -169,6 +177,7 @@ export function coerceBoolean(value: PreferenceValue | undefined, fallback: bool
 			) {
 				return false;
 			}
+
 			return fallback;
 		}
 		default:
@@ -193,9 +202,11 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	/** Untyped instance for the store behind the OS settings UI, created on first access. */
 	static get shared(): PreferencesCommon {
 		const ctor = this as unknown as { new (): PreferencesCommon; _shared?: PreferencesCommon };
+
 		if (!Object.prototype.hasOwnProperty.call(ctor, '_shared') || !ctor._shared) {
 			ctor._shared = new ctor();
 		}
+
 		return ctor._shared;
 	}
 
@@ -210,11 +221,13 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 			_applicationSettings?: PreferencesCommon;
 			applicationSettingsSuiteName?: string;
 		};
+
 		if (!Object.prototype.hasOwnProperty.call(ctor, '_applicationSettings') || !ctor._applicationSettings) {
 			ctor._applicationSettings = ctor.applicationSettingsSuiteName
 				? new ctor({ suiteName: ctor.applicationSettingsSuiteName })
 				: this.shared;
 		}
+
 		return ctor._applicationSettings;
 	}
 
@@ -243,15 +256,19 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		super();
 		this.suiteName = options?.suiteName || undefined;
 		const defaults: PreferenceSchema = {};
+
 		for (const key of Object.keys(options?.defaults || {})) {
 			const value = (options.defaults as PreferenceSchema)[key];
+
 			if (!isPreferenceValue(value)) {
 				throw new TypeError(
 					`nativescript-preferences: unsupported default for "${key}". Use a string, finite number, boolean or string[].`,
 				);
 			}
+
 			defaults[key] = value;
 		}
+
 		this.defaults = Object.freeze(defaults) as Readonly<PreferenceDefaults<T>>;
 		this.integers = new Set(options?.integers || []);
 		this.definition = options?.definition;
@@ -275,11 +292,14 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		if (this._initialized) {
 			return;
 		}
+
 		this._initialized = true;
 		const all = this._effectiveAll();
+
 		for (const key of Object.keys(all)) {
 			this._applyMirror(key, all[key], false);
 		}
+
 		this._startObserving();
 		Application.on(Application.resumeEvent, this._onAppResume, this);
 	}
@@ -300,9 +320,11 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	get<K extends keyof T & string>(key: K, fallback: T[K]): T[K];
 	get(key: string, fallback?: PreferenceValue): PreferenceValue | undefined {
 		const value = this._read(key);
+
 		if (value !== undefined) {
 			return value;
 		}
+
 		return fallback !== undefined ? fallback : (this.defaults as PreferenceSchema)[key];
 	}
 
@@ -345,18 +367,23 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		if (typeof key !== 'string' || key === '') {
 			throw new TypeError('nativescript-preferences: a preference key must be a non-empty string.');
 		}
+
 		if (value === null || value === undefined) {
 			this.remove(key as keyof T & string);
+
 			return;
 		}
+
 		if (!isPreferenceValue(value)) {
 			throw new TypeError(
 				`nativescript-preferences: unsupported value for "${key}". Use a string, finite number, boolean or string[].`,
 			);
 		}
+
 		if (typeof value === 'number' && this.integers.has(key)) {
 			value = Math.round(value);
 		}
+
 		this._guarded(() => this._write(key, value as PreferenceValue));
 		this._sync(key);
 	}
@@ -407,7 +434,9 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 						}
 					}
 				: keyOrCallback;
+
 		this.on(PreferencesCommon.changeEvent, handler as (data: EventData) => void);
+
 		return () => this.off(PreferencesCommon.changeEvent, handler as (data: EventData) => void);
 	}
 
@@ -415,6 +444,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 
 	private _effective(key: string): PreferenceValue | undefined {
 		const value = this._read(key);
+
 		return value !== undefined ? value : (this.defaults as PreferenceSchema)[key];
 	}
 
@@ -427,14 +457,19 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		if (!this._initialized) {
 			return;
 		}
+
 		if (key !== undefined) {
 			this._applyMirror(key, this._effective(key), true);
+
 			return;
 		}
+
 		const all = this._effectiveAll();
+
 		for (const k of Object.keys(all)) {
 			this._applyMirror(k, all[k], true);
 		}
+
 		for (const k of Array.from(this._mirror.keys())) {
 			if (!Object.prototype.hasOwnProperty.call(all, k)) {
 				this._applyMirror(k, undefined, true);
@@ -444,11 +479,14 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 
 	private _applyMirror(key: string, value: PreferenceValue | undefined, notify: boolean): void {
 		const oldValue = this._mirror.get(key);
+
 		if (notify && valuesEqual(oldValue, value)) {
 			return;
 		}
+
 		const mirrored = this._mirror.has(key);
 		const reserved = !mirrored && key in this;
+
 		if (reserved && !this._reservedWarned.has(key)) {
 			this._reservedWarned.add(key);
 			Trace.write(
@@ -457,6 +495,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 				Trace.messageType.warn,
 			);
 		}
+
 		if (value === undefined) {
 			this._mirror.delete(key);
 			if (mirrored && !reserved) {
@@ -468,6 +507,7 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 				(this as any)[key] = value;
 			}
 		}
+
 		if (notify) {
 			this.notifyPropertyChange(key, value, oldValue);
 			this.notify<PreferenceChangeEventData<T>>({

@@ -21,13 +21,17 @@ module.exports = function (hookArgs) {
 	const projectData = (hookArgs && hookArgs.projectData) || {};
 	const prepareData = (hookArgs && hookArgs.prepareData) || {};
 	const projectDir = projectData.projectDir || process.cwd();
+
 	if (isTruthy(process.env.NS_PREFERENCES_SKIP)) {
 		return;
 	}
+
 	const configFile = generator.findDefinition({ projectDir, appDir: projectData.appDirectoryPath });
+
 	if (!configFile) {
 		return;
 	}
+
 	const platform = typeof prepareData.platform === 'string' ? prepareData.platform.toLowerCase() : undefined;
 	const config = generator.loadConfig(configFile, { projectDir });
 	const result = generator.generate(config, {
@@ -35,14 +39,17 @@ module.exports = function (hookArgs) {
 		appResourcesDir: projectData.appResourcesDirectoryPath,
 		platforms: platform === 'ios' || platform === 'android' ? [platform] : undefined,
 	});
+
 	for (const warning of result.warnings) {
 		console.warn(`nativescript-preferences: ${warning}`);
 	}
+
 	for (const file of result.written.concat(result.removed)) {
 		console.log(
 			`nativescript-preferences: ${result.removed.includes(file) ? 'removed' : 'updated'} ${path.relative(projectDir, file)}`,
 		);
 	}
+
 	for (const file of result.skipped) {
 		console.log(
 			`nativescript-preferences: kept ${path.relative(projectDir, file)}, it has no generated header. Run "npx ns-preferences generate --force" to replace it, or set output.<platform> to false in ${config.source} to stop generating it.`,

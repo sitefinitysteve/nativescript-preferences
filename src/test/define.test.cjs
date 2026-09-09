@@ -45,6 +45,7 @@ function collect(items, out = {}) {
 			out[item.key] = item.default;
 		}
 	}
+
 	return out;
 }
 
@@ -52,6 +53,7 @@ test('define.ts derives the same defaults and integer keys as the generator', as
 	const { toPreferencesOptions } = await import(path.join(__dirname, '..', 'define.js'));
 	const runtime = toPreferencesOptions(definition);
 	const generated = generator.normalizeConfig(definition, { source: 'app.preferences.ts' });
+
 	assert.deepEqual(runtime.defaults, collect(generated.items));
 	assert.deepEqual(runtime.integers, ['slider_omitted', 'slider_min', 'slider_set']);
 	assert.equal(runtime.definition, definition);
@@ -60,6 +62,7 @@ test('define.ts derives the same defaults and integer keys as the generator', as
 
 test('define.ts requires a default for a list, like the generated module does', async () => {
 	const { toPreferencesOptions } = await import(path.join(__dirname, '..', 'define.js'));
+
 	assert.throws(
 		() => toPreferencesOptions({ items: [{ key: 'theme', type: 'list', title: 'T', options: ['a'] }] }),
 		/list "theme" needs a default/,

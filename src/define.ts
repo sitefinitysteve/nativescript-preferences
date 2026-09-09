@@ -18,7 +18,9 @@ export interface DefinedOptions {
 export function toPreferencesOptions(definition: PreferencesDefinition): DefinedOptions {
 	const defaults: Record<string, DefinedValue> = {};
 	const integers: string[] = [];
+
 	walk(definition.items, defaults, integers);
+
 	return { defaults, integers, definition };
 }
 
@@ -39,6 +41,7 @@ function walk(items: readonly PreferenceItem[], defaults: Record<string, Defined
 				if (item.default === undefined) {
 					throw new TypeError(`nativescript-preferences: list "${item.key}" needs a default.`);
 				}
+
 				defaults[item.key] = item.default;
 				break;
 			case 'multilist':

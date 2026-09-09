@@ -17,6 +17,7 @@ export function navigatingTo(args: EventData) {
 	// Subscribe once for the life of the page; unloaded also fires when the app is backgrounded,
 	// so unsubscribing there would silence the log after the first trip to the Settings app.
 	const log = page.getViewById<Label>('lastChange');
+
 	unsubscribe?.();
 	unsubscribe = settings.onChange((change) => {
 		log.text = `${change.key}: ${JSON.stringify(change.oldValue)} → ${JSON.stringify(change.value)}`;
@@ -24,11 +25,13 @@ export function navigatingTo(args: EventData) {
 
 	// Typed reads: the keys and value types are inferred from app.preferences.ts.
 	const textSize: number = settings.get('text_size');
+
 	console.log(`Starting at ${textSize}pt with the ${settings.get('theme')} theme`);
 }
 
 export async function onOpenSettings() {
 	const opened = await settings.openSettings({ title: 'Settings' });
+
 	if (!opened) {
 		Dialogs.alert('The settings UI could not be opened.');
 	}

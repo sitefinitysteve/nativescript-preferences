@@ -1,0 +1,9 @@
+# Format and lint only the files being committed. Formatting is auto-applied and
+# re-staged; lint errors block the commit.
+files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|cjs|mjs|js)$' | grep -v '^demo/platforms/' || true)
+
+[ -z "$files" ] && exit 0
+
+echo "$files" | xargs npx --no-install oxfmt || exit 1
+echo "$files" | xargs npx --no-install oxlint || exit 1
+echo "$files" | xargs git add

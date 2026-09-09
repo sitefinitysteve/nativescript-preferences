@@ -1,0 +1,31 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"categories": {
+		"correctness": "error"
+	},
+	"rules": {
+		"no-unused-vars": [
+			"error",
+			{
+				"caughtErrors": "none",
+				"argsIgnorePattern": "^_",
+				"varsIgnorePattern": "^_"
+			}
+		],
+		"eslint/preserve-caught-error": "warn"
+	},
+	"overrides": [
+		{
+			"files": ["**/*.d.ts"],
+			"rules": {
+				"typescript/triple-slash-reference": "off"
+			}
+		}
+	],
+	"ignorePatterns": [
+		"demo/platforms/**",
+		"demo/hooks/**",
+		"src/*.js",
+		"demo/app/settings.generated.ts"
+	]
+}
