@@ -1,4 +1,6 @@
 import { Application, EventData, Frame, Observable, Property, Trace, View } from '@nativescript/core';
+import type { PreferencesDefinition } from './definition';
+import { toPreferencesOptions } from './define';
 
 /** Every value type that can live in the native preference store on both platforms. */
 export type PreferenceValue = string | number | boolean | string[];
@@ -52,6 +54,8 @@ export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = Preference
 	 * module lists every `slider` here.
 	 */
 	integers?: (keyof T & string)[];
+	/** The definition this instance was created from by `definePreferences()`. */
+	definition?: PreferencesDefinition;
 }
 
 export interface OpenSettingsOptions {
@@ -90,7 +94,10 @@ export const xmlNamespace = 'nativescript-preferences';
  * not, so the platform entry points register themselves here as soon as they are imported.
  */
 export function registerXmlNamespace(members: Record<string, unknown>): void {
-	const g = globalThis as { registerModule?: (name: string, loader: () => unknown) => void; moduleExists?: (name: string) => boolean };
+	const g = globalThis as {
+		registerModule?: (name: string, loader: () => unknown) => void;
+		moduleExists?: (name: string) => boolean;
+	};
 	if (typeof g.registerModule !== 'function') {
 		return;
 	}
@@ -153,7 +160,13 @@ export function coerceBoolean(value: PreferenceValue | undefined, fallback: bool
 			if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
 				return true;
 			}
-			if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off' || normalized === '') {
+			if (
+				normalized === 'false' ||
+				normalized === '0' ||
+				normalized === 'no' ||
+				normalized === 'off' ||
+				normalized === ''
+			) {
 				return false;
 			}
 			return fallback;
@@ -192,9 +205,15 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	 * separate `prefs.db` file, which the OS preference screen does not edit.
 	 */
 	static get applicationSettings(): PreferencesCommon {
-		const ctor = this as unknown as { new (options?: PreferencesOptions): PreferencesCommon; _applicationSettings?: PreferencesCommon; applicationSettingsSuiteName?: string };
+		const ctor = this as unknown as {
+			new (options?: PreferencesOptions): PreferencesCommon;
+			_applicationSettings?: PreferencesCommon;
+			applicationSettingsSuiteName?: string;
+		};
 		if (!Object.prototype.hasOwnProperty.call(ctor, '_applicationSettings') || !ctor._applicationSettings) {
-			ctor._applicationSettings = ctor.applicationSettingsSuiteName ? new ctor({ suiteName: ctor.applicationSettingsSuiteName }) : this.shared;
+			ctor._applicationSettings = ctor.applicationSettingsSuiteName
+				? new ctor({ suiteName: ctor.applicationSettingsSuiteName })
+				: this.shared;
 		}
 		return ctor._applicationSettings;
 	}
@@ -211,6 +230,9 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	/** Keys whose numbers are rounded on write. */
 	readonly integers: ReadonlySet<string>;
 
+	/** The definition passed to `definePreferences()`, else `undefined`. */
+	readonly definition: PreferencesDefinition | undefined;
+
 	private readonly _mirror = new Map<string, PreferenceValue>();
 	private readonly _reservedWarned = new Set<string>();
 	private _initialized = false;
@@ -224,12 +246,15 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		for (const key of Object.keys(options?.defaults || {})) {
 			const value = (options.defaults as PreferenceSchema)[key];
 			if (!isPreferenceValue(value)) {
-				throw new TypeError(`nativescript-preferences: unsupported default for "${key}". Use a string, finite number, boolean or string[].`);
+				throw new TypeError(
+					`nativescript-preferences: unsupported default for "${key}". Use a string, finite number, boolean or string[].`,
+				);
 			}
 			defaults[key] = value;
 		}
 		this.defaults = Object.freeze(defaults) as Readonly<PreferenceDefaults<T>>;
 		this.integers = new Set(options?.integers || []);
+		this.definition = options?.definition;
 	}
 
 	// Platform contract ---------------------------------------------------------------------
@@ -325,7 +350,9 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 			return;
 		}
 		if (!isPreferenceValue(value)) {
-			throw new TypeError(`nativescript-preferences: unsupported value for "${key}". Use a string, finite number, boolean or string[].`);
+			throw new TypeError(
+				`nativescript-preferences: unsupported value for "${key}". Use a string, finite number, boolean or string[].`,
+			);
 		}
 		if (typeof value === 'number' && this.integers.has(key)) {
 			value = Math.round(value);
@@ -364,8 +391,14 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 	// Events --------------------------------------------------------------------------------
 
 	onChange(callback: (data: PreferenceChangeEventData<T>) => void): () => void;
-	onChange<K extends keyof T & string>(key: K, callback: (value: PreferenceGetResult<T, K>, data: PreferenceChangeEventData<T>) => void): () => void;
-	onChange(keyOrCallback: string | ((data: PreferenceChangeEventData<T>) => void), maybeCallback?: (value: any, data: PreferenceChangeEventData<T>) => void): () => void {
+	onChange<K extends keyof T & string>(
+		key: K,
+		callback: (value: PreferenceGetResult<T, K>, data: PreferenceChangeEventData<T>) => void,
+	): () => void;
+	onChange(
+		keyOrCallback: string | ((data: PreferenceChangeEventData<T>) => void),
+		maybeCallback?: (value: any, data: PreferenceChangeEventData<T>) => void,
+	): () => void {
 		const handler =
 			typeof keyOrCallback === 'string'
 				? (data: PreferenceChangeEventData<T>) => {
@@ -418,7 +451,11 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		const reserved = !mirrored && key in this;
 		if (reserved && !this._reservedWarned.has(key)) {
 			this._reservedWarned.add(key);
-			Trace.write(`Preference key "${key}" clashes with a member of Preferences and will not be exposed as a bindable property. Use get("${key}") instead.`, traceCategory, Trace.messageType.warn);
+			Trace.write(
+				`Preference key "${key}" clashes with a member of Preferences and will not be exposed as a bindable property. Use get("${key}") instead.`,
+				traceCategory,
+				Trace.messageType.warn,
+			);
 		}
 		if (value === undefined) {
 			this._mirror.delete(key);
@@ -433,13 +470,30 @@ export abstract class PreferencesCommon<T extends PreferenceSchemaOf<T> = Prefer
 		}
 		if (notify) {
 			this.notifyPropertyChange(key, value, oldValue);
-			this.notify<PreferenceChangeEventData<T>>({ eventName: PreferencesCommon.changeEvent, object: this, key: key as keyof T & string, value, oldValue });
+			this.notify<PreferenceChangeEventData<T>>({
+				eventName: PreferencesCommon.changeEvent,
+				object: this,
+				key: key as keyof T & string,
+				value,
+				oldValue,
+			});
 		}
 	}
 
 	private _onAppResume(): void {
 		this._sync();
 	}
+}
+
+/**
+ * Builds the platform entry's `definePreferences()`: the definition becomes the instance's defaults
+ * and integer keys, and stays reachable as `definition`. The build hook evaluates the same file
+ * under Node with a stub that returns the definition untouched.
+ */
+export function createDefinePreferences<C extends new (options?: PreferencesOptions<any>) => PreferencesCommon<any>>(
+	ctor: C,
+): (definition: PreferencesDefinition) => InstanceType<C> {
+	return (definition) => new ctor(toPreferencesOptions(definition)) as InstanceType<C>;
 }
 
 /**
@@ -459,7 +513,10 @@ export abstract class PreferencesViewBase extends View {
 	declare rootKey: string;
 }
 
-export const resourceProperty = new Property<PreferencesViewBase, string>({ name: 'resource', defaultValue: 'preferences' });
+export const resourceProperty = new Property<PreferencesViewBase, string>({
+	name: 'resource',
+	defaultValue: 'preferences',
+});
 export const suiteNameProperty = new Property<PreferencesViewBase, string>({ name: 'suiteName' });
 export const rootKeyProperty = new Property<PreferencesViewBase, string>({ name: 'rootKey' });
 

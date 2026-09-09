@@ -1,4 +1,7 @@
 import { EventData, Frame, Observable, Property, View } from '@nativescript/core';
+import type { InferPreferences, PreferencesDefinition, ValidatePreferencesDefinition } from './definition';
+
+export * from './definition';
 
 /** Every value type that can live in the native preference store on both platforms. */
 export type PreferenceValue = string | number | boolean | string[];
@@ -52,6 +55,8 @@ export interface PreferencesOptions<T extends PreferenceSchemaOf<T> = Preference
 	 * they are registered in the `NSRegistrationDomain` as well.
 	 */
 	defaults?: PreferenceDefaults<T>;
+	/** The definition this instance was created from by `definePreferences()`. */
+	definition?: PreferencesDefinition;
 }
 
 export interface OpenSettingsOptions {
@@ -118,11 +123,14 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	/** The in-code defaults passed to the constructor. */
 	readonly defaults: Readonly<PreferenceDefaults<T>>;
 
+	/** The definition passed to `definePreferences()`, else `undefined`. */
+	readonly definition: PreferencesDefinition | undefined;
+
 	/** iOS only. The underlying `NSUserDefaults`. */
-	readonly ios: any /* NSUserDefaults */;
+	readonly ios: any; /* NSUserDefaults */
 
 	/** Android only. The underlying `android.content.SharedPreferences`. */
-	readonly android: any /* android.content.SharedPreferences */;
+	readonly android: any; /* android.content.SharedPreferences */
 
 	constructor(options?: PreferencesOptions<T>);
 
@@ -174,7 +182,10 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	onChange(callback: (data: PreferenceChangeEventData<T>) => void): () => void;
 
 	/** Subscribes to changes of one key. Returns a function that unsubscribes. */
-	onChange<K extends keyof T & string>(key: K, callback: (value: PreferenceGetResult<T, K>, data: PreferenceChangeEventData<T>) => void): () => void;
+	onChange<K extends keyof T & string>(
+		key: K,
+		callback: (value: PreferenceGetResult<T, K>, data: PreferenceChangeEventData<T>) => void,
+	): () => void;
 
 	/**
 	 * iOS: registers the `DefaultValue` of every preference in `<bundleName>.bundle` (default
@@ -198,6 +209,34 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
 	/** Stops listening to native changes. Only needed for short-lived instances. */
 	dispose(): void;
 }
+
+/**
+ * Describes the app's settings once, inline, and returns the typed instance for them.
+ *
+ * ```ts
+ * // app/app.preferences.ts
+ * export default definePreferences({
+ *   items: [{ type: 'group', title: 'General', items: [
+ *     { key: 'theme', type: 'list', title: 'Theme', default: 'system', options: ['system', 'light', 'dark'] },
+ *     { key: 'volume', type: 'slider', title: 'Volume', default: 50, min: 0, max: 100 },
+ *   ]}],
+ * });
+ * ```
+ *
+ * ```ts
+ * import settings from './app.preferences';
+ * settings.get('theme'); // 'system' | 'light' | 'dark'
+ * ```
+ *
+ * Keys and value types are inferred from the literal; a `list` default that is not one of its
+ * options, or a misspelled property, is a compile error. The build hook evaluates the same file
+ * under Node to generate `Settings.bundle` and `preferences.xml`, so keep it self-contained:
+ * import only this package and relative `.ts` helpers, nothing from the app or `@nativescript/*`.
+ * Requires TypeScript 5.3 or newer.
+ */
+export declare function definePreferences<const D extends PreferencesDefinition>(
+	definition: D & ValidatePreferencesDefinition<D>,
+): Preferences<InferPreferences<D>> & { readonly definition: D };
 
 /**
  * A view that hosts the native Android preference screen so it can be embedded in any page,

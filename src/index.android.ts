@@ -1,5 +1,20 @@
 import { ActionBar, Application, Frame, NavigationButton, Page, Trace, Utils, View } from '@nativescript/core';
-import { OpenSettingsOptions, PreferenceScreenEventData, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, registerXmlNamespace, resourceProperty, rootKeyProperty, suiteNameProperty, traceCategory } from './common';
+import {
+	createDefinePreferences,
+	OpenSettingsOptions,
+	PreferenceSchema,
+	PreferenceSchemaOf,
+	PreferencesCommon,
+	PreferenceScreenEventData,
+	PreferencesOptions,
+	PreferencesViewBase,
+	PreferenceValue,
+	registerXmlNamespace,
+	resourceProperty,
+	rootKeyProperty,
+	suiteNameProperty,
+	traceCategory,
+} from './common';
 
 export * from './common';
 
@@ -21,7 +36,9 @@ function sharedPreferencesName(suiteName: string | undefined): string {
 function resolveXmlResource(context: android.content.Context, name: string): number {
 	const id = context.getResources().getIdentifier(name, 'xml', context.getPackageName());
 	if (!id) {
-		throw new Error(`nativescript-preferences: resource "res/xml/${name}.xml" was not found. Add App_Resources/Android/src/main/res/xml/${name}.xml with a <PreferenceScreen>.`);
+		throw new Error(
+			`nativescript-preferences: resource "res/xml/${name}.xml" was not found. Add App_Resources/Android/src/main/res/xml/${name}.xml with a <PreferenceScreen>.`,
+		);
 	}
 	return id;
 }
@@ -64,7 +81,10 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 
 	constructor(options?: PreferencesOptions<T>) {
 		super(options);
-		this._prefs = appContext().getSharedPreferences(sharedPreferencesName(this.suiteName), android.content.Context.MODE_PRIVATE);
+		this._prefs = appContext().getSharedPreferences(
+			sharedPreferencesName(this.suiteName),
+			android.content.Context.MODE_PRIVATE,
+		);
 		this._init();
 	}
 
@@ -81,7 +101,13 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		const context = appContext();
 		const resId = resolveXmlResource(context, resource);
 		if (this.suiteName) {
-			androidx.preference.PreferenceManager.setDefaultValues(context, this.suiteName, android.content.Context.MODE_PRIVATE, resId, readAgain);
+			androidx.preference.PreferenceManager.setDefaultValues(
+				context,
+				this.suiteName,
+				android.content.Context.MODE_PRIVATE,
+				resId,
+				readAgain,
+			);
 		} else {
 			androidx.preference.PreferenceManager.setDefaultValues(context, resId, readAgain);
 		}
@@ -92,8 +118,15 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 		try {
 			const resource = options.resource || DEFAULT_RESOURCE;
 			resolveXmlResource(appContext(), resource);
-			const page = createSettingsPage({ resource, rootKey: options.rootKey, suiteName: this.suiteName, title: options.title });
-			return Promise.resolve(presentPage(page, { modal: options.modal, frame: options.frame, animated: options.animated }));
+			const page = createSettingsPage({
+				resource,
+				rootKey: options.rootKey,
+				suiteName: this.suiteName,
+				title: options.title,
+			});
+			return Promise.resolve(
+				presentPage(page, { modal: options.modal, frame: options.frame, animated: options.animated }),
+			);
 		} catch (error) {
 			return Promise.reject(error);
 		}
@@ -270,7 +303,9 @@ function ensureFragmentClass(): { new (): PreferenceFragment } {
 		return FragmentClass;
 	}
 	if (typeof androidx.preference === 'undefined' || !androidx.preference.PreferenceFragmentCompat) {
-		throw new Error('nativescript-preferences: androidx.preference is missing. Make sure the plugin include.gradle was applied and rebuild the app.');
+		throw new Error(
+			'nativescript-preferences: androidx.preference is missing. Make sure the plugin include.gradle was applied and rebuild the app.',
+		);
 	}
 	FragmentClass = androidx.preference.PreferenceFragmentCompat.extend({
 		onCreatePreferences(this: PreferenceFragment, _savedInstanceState: android.os.Bundle, rootKey: string): void {
@@ -286,7 +321,11 @@ function ensureFragmentClass(): { new (): PreferenceFragment } {
 		onNavigateToScreen(this: PreferenceFragment, screen: androidx.preference.PreferenceScreen): void {
 			const key = screen.getKey();
 			if (!key) {
-				Trace.write('A nested PreferenceScreen needs an android:key to be opened.', traceCategory, Trace.messageType.warn);
+				Trace.write(
+					'A nested PreferenceScreen needs an android:key to be opened.',
+					traceCategory,
+					Trace.messageType.warn,
+				);
 				return;
 			}
 			const rawTitle = screen.getTitle();
@@ -363,13 +402,24 @@ export class PreferencesView extends PreferencesViewBase {
 
 	/** @internal */
 	_navigateToScreen(key: string, title: string | undefined): void {
-		const data: PreferenceScreenEventData = { eventName: PreferencesViewBase.navigateToScreenEvent, object: this, key, title, handled: false };
+		const data: PreferenceScreenEventData = {
+			eventName: PreferencesViewBase.navigateToScreenEvent,
+			object: this,
+			key,
+			title,
+			handled: false,
+		};
 		this.notify(data);
 		if (data.handled) {
 			return;
 		}
 		const currentTitle = this.page && this.page.actionBar ? this.page.actionBar.title : undefined;
-		const page = createSettingsPage({ resource: this.resource, suiteName: this.suiteName, rootKey: key, title: title || currentTitle });
+		const page = createSettingsPage({
+			resource: this.resource,
+			suiteName: this.suiteName,
+			rootKey: key,
+			title: title || currentTitle,
+		});
 		if (isInsideModal(this)) {
 			presentPage(page, { modal: true, host: this });
 		} else {
@@ -406,7 +456,12 @@ export class PreferencesView extends PreferencesViewBase {
 		if (!manager || manager.isDestroyed()) {
 			return;
 		}
-		if (this._fragment && this._fragmentManager && !this._fragmentManager.isDestroyed() && this._fragmentManager.equals(manager)) {
+		if (
+			this._fragment &&
+			this._fragmentManager &&
+			!this._fragmentManager.isDestroyed() &&
+			this._fragmentManager.equals(manager)
+		) {
 			return;
 		}
 		this._removeFragment();
@@ -425,7 +480,10 @@ export class PreferencesView extends PreferencesViewBase {
 		fragment.setArguments(args);
 		fragment._owner = new WeakRef(this);
 
-		manager.beginTransaction().replace(this.nativeViewProtected.getId(), fragment, FRAGMENT_TAG).commitAllowingStateLoss();
+		manager
+			.beginTransaction()
+			.replace(this.nativeViewProtected.getId(), fragment, FRAGMENT_TAG)
+			.commitAllowingStateLoss();
 		this._fragment = fragment;
 		this._fragmentManager = manager;
 	}
@@ -444,5 +502,8 @@ export class PreferencesView extends PreferencesViewBase {
 		}
 	}
 }
+
+/** Creates the app's typed instance from an inline definition. See `definition.d.ts`. */
+export const definePreferences = createDefinePreferences(Preferences);
 
 registerXmlNamespace({ Preferences, PreferencesView });

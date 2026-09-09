@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.0.0
+
+Settings are now declared in TypeScript. `app/app.preferences.ts` exports `definePreferences({ items })`; keys, value types and option literals are inferred from the literal, and the same file is the runtime instance, so there is no generated `settings.generated.ts` any more. The build hook evaluates the file under Node, the way the NativeScript CLI reads `nativescript.config.ts`, and writes `Settings.bundle` and `preferences.xml` from it exactly as before. Suggested by the NativeScript core team on the RFC: https://github.com/NativeScript/rfcs/pull/54#issuecomment-5593575051
+
+**Breaking**
+
+- Requires TypeScript 5.3 or newer (the typings use `const` type parameters; verified through 7.0). Projects on `preferences.json` are affected too, since the typings are shared. Reading the definition at build time needs the TypeScript compiler API, which 7.x dropped: the hook uses the project's 5.3 to 6.x `typescript` when present, else the NativeScript CLI's own copy, else explains what to install.
+- `npx ns-preferences init` creates `app/app.preferences.ts`. Pass `--json` for the previous behaviour; `--typescript <file>` now only applies with `--json`.
+
+**Added**
+
+- `definePreferences(definition)`: returns `Preferences<InferPreferences<typeof definition>>`. A `list` default that is not one of its options, a `multilist` default outside its options, a group inside a group, or a misspelled property is a compile error. The definition stays reachable as `settings.definition`.
+- Types: `PreferencesDefinition`, `PreferenceItem` and the per-type item interfaces, `InferPreferences<D>`, `PreferencePlatformOverride`.
+- The hook and the CLI find `app.preferences.ts` (or `.js`) in the app folder (`appPath` from `nativescript.config.ts`, else `src`, else `app`) or the project root, then fall back to `preferences.json`. Both present at once is an error. New CLI options `--app-dir` and `--json`.
+- Relative `.ts` / `.js` helper imports work inside the definition. Any other import is rejected with a message, since the file runs in Node at build time.
+- Generated files name the definition they came from in their header.
+
+**Unchanged**
+
+- `preferences.json` projects: same schema, same `output.typescript`, same generated module.
+- The `Preferences` class, `PreferencesView`, the native stores, and every generated plist / XML byte.
+
 ## 2.0.2
 
 - iOS registered in-code defaults after the `Settings.bundle` ones, so a hand-written bundle value lost to the in-code one, the opposite of what the README said. The bundle now wins where both define a key. Generated projects are unaffected; both come from the same JSON.

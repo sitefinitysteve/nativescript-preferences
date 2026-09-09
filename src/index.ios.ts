@@ -1,5 +1,16 @@
 import { Trace } from '@nativescript/core';
-import { OpenSettingsOptions, PreferenceValue, PreferenceSchema, PreferenceSchemaOf, PreferencesCommon, PreferencesOptions, PreferencesViewBase, registerXmlNamespace, traceCategory } from './common';
+import {
+	OpenSettingsOptions,
+	PreferenceValue,
+	PreferenceSchema,
+	PreferenceSchemaOf,
+	PreferencesCommon,
+	PreferencesOptions,
+	PreferencesViewBase,
+	createDefinePreferences,
+	registerXmlNamespace,
+	traceCategory,
+} from './common';
 
 export * from './common';
 
@@ -45,9 +56,14 @@ function toNS(value: PreferenceValue): any {
  * `AppleLanguages`, `MultiWindowEnabled`, `WebKit...`). They are not app preferences, so `keys()`, `getAll()` and the
  * global change event leave them out unless the app declared the key itself.
  */
-export const systemKeyPattern = /^(NS|Apple|AK|WebKit|PK|MS|com\.apple\.|INNext|AddingEmojiKeybordHandled|UIInterface|CarPlay|Metal|MultiWindow)/;
+export const systemKeyPattern =
+	/^(NS|Apple|AK|WebKit|PK|MS|com\.apple\.|INNext|AddingEmojiKeybordHandled|UIInterface|CarPlay|Metal|MultiWindow)/;
 
-function mergeDictionary(target: Record<string, PreferenceValue>, dictionary: NSDictionary<string, any> | null, keep?: (key: string) => boolean): void {
+function mergeDictionary(
+	target: Record<string, PreferenceValue>,
+	dictionary: NSDictionary<string, any> | null,
+	keep?: (key: string) => boolean,
+): void {
 	if (!dictionary) {
 		return;
 	}
@@ -69,7 +85,11 @@ function readSettingsBundleDefaults(bundleName: string): Record<string, Preferen
 	const result: Record<string, PreferenceValue> = {};
 	const bundlePath = NSBundle.mainBundle.pathForResourceOfType(bundleName, 'bundle');
 	if (!bundlePath) {
-		Trace.write(`${bundleName}.bundle was not found in the app bundle, so no defaults were registered.`, traceCategory, Trace.messageType.info);
+		Trace.write(
+			`${bundleName}.bundle was not found in the app bundle, so no defaults were registered.`,
+			traceCategory,
+			Trace.messageType.info,
+		);
 		return result;
 	}
 	const visited = new Set<string>();
@@ -79,7 +99,9 @@ function readSettingsBundleDefaults(bundleName: string): Record<string, Preferen
 		}
 		visited.add(plistName);
 		const dictionary = NSDictionary.dictionaryWithContentsOfFile(`${bundlePath}/${plistName}.plist`);
-		const specifiers: NSArray<NSDictionary<string, any>> | null = dictionary ? dictionary.objectForKey('PreferenceSpecifiers') : null;
+		const specifiers: NSArray<NSDictionary<string, any>> | null = dictionary
+			? dictionary.objectForKey('PreferenceSpecifiers')
+			: null;
 		if (!specifiers) {
 			return;
 		}
@@ -112,7 +134,9 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 
 	constructor(options?: PreferencesOptions<T>) {
 		super(options);
-		this._defaults = this.suiteName ? NSUserDefaults.alloc().initWithSuiteName(this.suiteName) : NSUserDefaults.standardUserDefaults;
+		this._defaults = this.suiteName
+			? NSUserDefaults.alloc().initWithSuiteName(this.suiteName)
+			: NSUserDefaults.standardUserDefaults;
 		this._domain = this.suiteName || NSBundle.mainBundle.bundleIdentifier;
 		this._registerDictionary(this.defaults);
 		// After the in-code defaults so a bundle value wins where both define a key.
@@ -161,16 +185,24 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 				resolve(false);
 				return;
 			}
-			application.openURLOptionsCompletionHandler(url, NSDictionary.new<string, any>(), (success: boolean) => resolve(!!success));
+			application.openURLOptionsCompletionHandler(url, NSDictionary.new<string, any>(), (success: boolean) =>
+				resolve(!!success),
+			);
 		});
 	}
 
 	protected _readAll(): Record<string, PreferenceValue> {
 		const result: Record<string, PreferenceValue> = {};
 		// The registration domain is process-wide and full of UIKit's own defaults; keep only ours.
-		mergeDictionary(result, this._defaults.volatileDomainForName(NSRegistrationDomain), (key) => this._registered.has(key));
+		mergeDictionary(result, this._defaults.volatileDomainForName(NSRegistrationDomain), (key) =>
+			this._registered.has(key),
+		);
 		// The persistent domain is the app's, but the OS drops a few keys in it too. Declared keys always win.
-		mergeDictionary(result, this._defaults.persistentDomainForName(this._domain), (key) => this._registered.has(key) || !systemKeyPattern.test(key));
+		mergeDictionary(
+			result,
+			this._defaults.persistentDomainForName(this._domain),
+			(key) => this._registered.has(key) || !systemKeyPattern.test(key),
+		);
 		return result;
 	}
 
@@ -205,13 +237,18 @@ export class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSchema> ext
 			return;
 		}
 		const owner = new WeakRef(this);
-		this._observer = NSNotificationCenter.defaultCenter.addObserverForNameObjectQueueUsingBlock(NSUserDefaultsDidChangeNotification, null, NSOperationQueue.mainQueue, () => {
-			const self = owner.get();
-			// Our own writes notify from set()/remove()/clear(); the OS posts this synchronously inside them.
-			if (self && !self._writing) {
-				self._sync();
-			}
-		});
+		this._observer = NSNotificationCenter.defaultCenter.addObserverForNameObjectQueueUsingBlock(
+			NSUserDefaultsDidChangeNotification,
+			null,
+			NSOperationQueue.mainQueue,
+			() => {
+				const self = owner.get();
+				// Our own writes notify from set()/remove()/clear(); the OS posts this synchronously inside them.
+				if (self && !self._writing) {
+					self._sync();
+				}
+			},
+		);
 	}
 
 	protected _stopObserving(): void {
@@ -228,9 +265,16 @@ export class PreferencesView extends PreferencesViewBase {
 	declare nativeViewProtected: UIView;
 
 	createNativeView(): UIView {
-		Trace.write('PreferencesView renders nothing on iOS. App preferences live in the Settings app; call Preferences.shared.openSettings() to get there.', traceCategory, Trace.messageType.info);
+		Trace.write(
+			'PreferencesView renders nothing on iOS. App preferences live in the Settings app; call Preferences.shared.openSettings() to get there.',
+			traceCategory,
+			Trace.messageType.info,
+		);
 		return UIView.new();
 	}
 }
+
+/** Creates the app's typed instance from an inline definition. See `definition.d.ts`. */
+export const definePreferences = createDefinePreferences(Preferences);
 
 registerXmlNamespace({ Preferences, PreferencesView });

@@ -1,6 +1,6 @@
 {
 	"name": "nativescript-preferences",
-	"version": "2.0.2",
+	"version": "3.0.0",
 	"description": "Native app preferences for NativeScript: read and write NSUserDefaults / SharedPreferences, open the OS settings UI, and bind your own screens to the same values.",
 	"main": "index",
 	"typings": "index.d.ts",
@@ -16,11 +16,14 @@
 	},
 	"files": [
 		"index.d.ts",
+		"define.js",
+		"definition.d.ts",
 		"common.js",
 		"index.android.js",
 		"index.ios.js",
 		"platforms/android/include.gradle",
 		"generator/index.cjs",
+		"generator/load-definition.cjs",
 		"bin/ns-preferences.cjs",
 		"hooks/before-prepare.cjs",
 		"preferences.schema.json",
@@ -29,10 +32,10 @@
 	],
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
-		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/types/tsconfig.json",
 		"clean": "node -e \"for (const f of ['common.js','index.android.js','index.ios.js','README.md','LICENSE','llms.txt','SKILL.md']) require('fs').rmSync(f, { force: true })\"",
 		"prepack": "npm run build && node -e \"const fs=require('fs');for (const f of ['README.md','LICENSE','llms.txt','SKILL.md']) fs.copyFileSync('../'+f, f)\"",
-		"test": "node --test \"test/**/*.test.cjs\""
+		"test": "node --test \"test/**/*.test.cjs\" && tsc -p test/types/tsconfig.json"
 	},
 	"repository": {
 		"type": "git",

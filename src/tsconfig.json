@@ -19,5 +19,5 @@
 		"removeComments": false,
 		"pretty": true
 	},
-	"files": ["references.d.ts", "common.ts", "index.android.ts", "index.ios.ts"]
+	"files": ["references.d.ts", "common.ts", "define.ts", "index.android.ts", "index.ios.ts"]
 }

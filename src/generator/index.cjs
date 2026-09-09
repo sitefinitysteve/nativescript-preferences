@@ -24,36 +24,86 @@ const DEFAULT_OUTPUT = {
 };
 
 class PreferencesConfigError extends Error {
-	constructor(message) {
-		super(`preferences.json: ${message}`);
+	constructor(message, source = DEFAULT_CONFIG_FILE) {
+		super(`${source}: ${message}`);
 		this.name = 'PreferencesConfigError';
 	}
 }
 
 // Loading & validation ---------------------------------------------------------------------------
 
-function loadConfig(file) {
+/**
+ * Loads `preferences.json`, or an `app.preferences.ts` / `.js` definition evaluated under Node.
+ * `options.projectDir` is where `typescript` is resolved from for a definition file.
+ */
+function loadConfig(file, options = {}) {
+	const source = path.basename(file);
+	if (!file.endsWith('.json')) {
+		const { loadDefinition } = require('./load-definition.cjs');
+		let definition;
+		try {
+			definition = loadDefinition(file, { projectDir: options.projectDir });
+		} catch (error) {
+			throw new PreferencesConfigError(error.message, source);
+		}
+		return normalizeConfig(definition, { source });
+	}
 	let text;
 	try {
 		text = fs.readFileSync(file, 'utf8');
 	} catch (error) {
-		throw new PreferencesConfigError(`could not read ${file}: ${error.message}`);
+		throw new PreferencesConfigError(`could not read ${file}: ${error.message}`, source);
 	}
 	let json;
 	try {
 		json = JSON.parse(text);
 	} catch (error) {
-		throw new PreferencesConfigError(`${file} is not valid JSON: ${error.message}`);
+		throw new PreferencesConfigError(`${file} is not valid JSON: ${error.message}`, source);
 	}
-	return normalizeConfig(json);
+	return normalizeConfig(json, { source });
 }
 
-function normalizeConfig(json) {
+/** `options.source` is the file name for headers and messages (default `preferences.json`). */
+function normalizeConfig(json, options = {}) {
+	const source = options.source || DEFAULT_CONFIG_FILE;
+	try {
+		return normalizeConfigFrom(json, source);
+	} catch (error) {
+		if (error instanceof PreferencesConfigError && source !== DEFAULT_CONFIG_FILE) {
+			error.message = error.message.replace(`${DEFAULT_CONFIG_FILE}:`, `${source}:`);
+		}
+		throw error;
+	}
+}
+
+function normalizeConfigFrom(json, source) {
 	if (!json || typeof json !== 'object' || Array.isArray(json)) {
 		throw new PreferencesConfigError('the root must be an object with an "items" array.');
 	}
 	if (!Array.isArray(json.items)) {
 		throw new PreferencesConfigError('"items" must be an array.');
+	}
+	if (!source.endsWith('.json')) {
+		// A definition file is the typed module; the generated one and its naming have no meaning here.
+		for (const field of ['typescript', 'interfaceName', 'exportName']) {
+			if (json.output && json.output[field] !== undefined) {
+				throw new PreferencesConfigError(
+					`"output.${field}" only applies to preferences.json; the definition file is the typed module.`,
+				);
+			}
+		}
+		if (json.suiteName !== undefined) {
+			throw new PreferencesConfigError(
+				'"suiteName" is not supported in a definition yet; construct `new Preferences({ suiteName })` for a separate store.',
+			);
+		}
+	}
+	for (const field of Object.keys(json.output || {})) {
+		if (!Object.prototype.hasOwnProperty.call(DEFAULT_OUTPUT, field)) {
+			throw new PreferencesConfigError(
+				`"output.${field}" is not an output option (${Object.keys(DEFAULT_OUTPUT).join(', ')}).`,
+			);
+		}
 	}
 	const output = Object.assign({}, DEFAULT_OUTPUT, json.output || {});
 	for (const field of ['androidResource', 'interfaceName', 'exportName']) {
@@ -67,12 +117,16 @@ function normalizeConfig(json) {
 			throw new PreferencesConfigError(`"output.${field}" must be a path or false.`);
 		}
 	}
-	if (output.typescript !== undefined && output.typescript !== false && (typeof output.typescript !== 'string' || !output.typescript)) {
+	if (
+		output.typescript !== undefined &&
+		output.typescript !== false &&
+		(typeof output.typescript !== 'string' || !output.typescript)
+	) {
 		throw new PreferencesConfigError('"output.typescript" must be a path or false when set.');
 	}
 	const seenKeys = new Map();
 	const items = json.items.map((item, index) => normalizeItem(item, `items[${index}]`, seenKeys, 0));
-	return { title: typeof json.title === 'string' ? json.title : 'Settings', output, items };
+	return { title: typeof json.title === 'string' ? json.title : 'Settings', output, items, source };
 }
 
 function normalizeItem(item, where, seenKeys, depth) {
@@ -81,7 +135,9 @@ function normalizeItem(item, where, seenKeys, depth) {
 	}
 	const type = item.type;
 	if (!ITEM_TYPES.includes(type)) {
-		throw new PreferencesConfigError(`${where}.type must be one of ${ITEM_TYPES.join(', ')}, got ${JSON.stringify(type)}.`);
+		throw new PreferencesConfigError(
+			`${where}.type must be one of ${ITEM_TYPES.join(', ')}, got ${JSON.stringify(type)}.`,
+		);
 	}
 	const result = { type };
 	for (const field of ['title', 'summary', 'placeholder']) {
@@ -119,8 +175,10 @@ function normalizeItem(item, where, seenKeys, depth) {
 		}
 		result.items = item.items.map((child, index) => {
 			const childWhere = `${where}.items[${index}]`;
-			if (type === 'group' && (child && child.type === 'group')) {
-				throw new PreferencesConfigError(`${childWhere}: a group cannot contain another group. Use a screen for nesting.`);
+			if (type === 'group' && child && child.type === 'group') {
+				throw new PreferencesConfigError(
+					`${childWhere}: a group cannot contain another group. Use a screen for nesting.`,
+				);
 			}
 			return normalizeItem(child, childWhere, seenKeys, depth + 1);
 		});
@@ -173,7 +231,9 @@ function normalizeItem(item, where, seenKeys, depth) {
 				}
 				for (const value of defaults) {
 					if (!values.includes(value)) {
-						throw new PreferencesConfigError(`${where}.default contains "${value}", which is not one of the option values.`);
+						throw new PreferencesConfigError(
+							`${where}.default contains "${value}", which is not one of the option values.`,
+						);
 					}
 				}
 				result.default = defaults;
@@ -198,7 +258,9 @@ function normalizeItem(item, where, seenKeys, depth) {
 			}
 			for (const field of ['min', 'max', 'default', 'step']) {
 				if (result[field] !== undefined && !Number.isInteger(result[field])) {
-					throw new PreferencesConfigError(`${where}.${field} must be an integer; Android SeekBarPreference stores integers.`);
+					throw new PreferencesConfigError(
+						`${where}.${field} must be an integer; Android SeekBarPreference stores integers.`,
+					);
 				}
 			}
 			break;
@@ -237,7 +299,9 @@ function normalizeOverride(override, where, platform) {
 			}
 		} else if (platform === 'ios') {
 			if (value !== null && !isPlistValue(value)) {
-				throw new PreferencesConfigError(`${where}.${name} must be a string, number, boolean, array of strings or null.`);
+				throw new PreferencesConfigError(
+					`${where}.${name} must be a string, number, boolean, array of strings or null.`,
+				);
 			}
 		} else {
 			if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
@@ -285,6 +349,12 @@ function normalizeOptions(options, where) {
 			value = option;
 			title = option;
 		} else if (option && typeof option === 'object' && typeof option.value === 'string') {
+			const extra = Object.keys(option).find((name) => name !== 'value' && name !== 'title');
+			if (extra !== undefined) {
+				throw new PreferencesConfigError(
+					`${where}.options[${index}].${extra} is not an option field; use { value, title }.`,
+				);
+			}
 			value = option.value;
 			title = typeof option.title === 'string' ? option.title : option.value;
 		} else {
@@ -301,7 +371,12 @@ function normalizeOptions(options, where) {
 // Shared helpers ---------------------------------------------------------------------------------
 
 function escapeXml(text) {
-	return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+	return String(text)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
 }
 
 /** Every item that stores a value, in document order, with nested screens flattened. */
@@ -330,7 +405,14 @@ function collectScreens(items, result = []) {
 
 // iOS --------------------------------------------------------------------------------------------
 
-const IOS_KEYBOARDS = { default: 'Alphabet', email: 'EmailAddress', number: 'NumberPad', decimal: 'NumbersAndPunctuation', phone: 'NumbersAndPunctuation', url: 'URL' };
+const IOS_KEYBOARDS = {
+	default: 'Alphabet',
+	email: 'EmailAddress',
+	number: 'NumberPad',
+	decimal: 'NumbersAndPunctuation',
+	phone: 'NumbersAndPunctuation',
+	url: 'URL',
+};
 const IOS_CAPITALIZATION = { none: 'None', sentences: 'Sentences', words: 'Words', characters: 'AllCharacters' };
 
 function plistValue(value, indent) {
@@ -369,7 +451,9 @@ function iosSpecifiers(item, diagnostics) {
 	}
 	const override = item.ios || {};
 	if (item.type === 'multilist' && !override.widget) {
-		diagnostics.notes.push(`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API. Set "ios": false on it to make that explicit.`);
+		diagnostics.notes.push(
+			`"${item.key}": iOS Settings has no multi-select control, so this item is left out of Settings.bundle. It still works through the Preferences API. Set "ios": false on it to make that explicit.`,
+		);
 		return [];
 	}
 	const specifiers = iosBaseSpecifiers(item, diagnostics);
@@ -383,7 +467,10 @@ function iosSpecifiers(item, diagnostics) {
 
 /** Merges override entries into an `[name, value]` list: swap the control, then set or remove keys. */
 function applyOverrides(entries, override, controlField, controlName) {
-	const merged = entries.map(([name, value]) => [name, name === controlName && override[controlField] ? override[controlField] : value]);
+	const merged = entries.map(([name, value]) => [
+		name,
+		name === controlName && override[controlField] ? override[controlField] : value,
+	]);
 	for (const name of Object.keys(override)) {
 		if (name === controlField) {
 			continue;
@@ -540,7 +627,9 @@ function iosSection(items, diagnostics, afterGroup) {
 	for (const radio of radios) {
 		const index = items.indexOf(radio);
 		if (items.slice(index + 1).some((item) => !isIosRadioGroup(item))) {
-			diagnostics.notes.push(`"${radio.key}": iOS renders a PSRadioGroupSpecifier as its own section, so it was moved to the end of its group in Settings.bundle. Put it last in preferences.json to match.`);
+			diagnostics.notes.push(
+				`"${radio.key}": iOS renders a PSRadioGroupSpecifier as its own section, so it was moved to the end of its group in Settings.bundle. Put it last in preferences.json to match.`,
+			);
 		}
 	}
 	const specifiers = [];
@@ -563,13 +652,13 @@ function iosSection(items, diagnostics, afterGroup) {
 	return specifiers;
 }
 
-function renderPlist(items, diagnostics) {
+function renderPlist(items, diagnostics, source = DEFAULT_CONFIG_FILE) {
 	const specifiers = iosSiblings(items, diagnostics);
 	const body = specifiers.map((entries) => plistDict(entries, '\t\t')).join('\n');
 	return [
 		'<?xml version="1.0" encoding="UTF-8"?>',
 		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
-		`<!-- ${GENERATED_MARKER} from ${DEFAULT_CONFIG_FILE}. Do not edit; edit ${DEFAULT_CONFIG_FILE} instead. -->`,
+		`<!-- ${GENERATED_MARKER} from ${source}. Do not edit; edit ${source} instead. -->`,
 		'<plist version="1.0">',
 		'<dict>',
 		'\t<key>PreferenceSpecifiers</key>',
@@ -591,9 +680,9 @@ function renderIos(config, diagnostics = { warnings: [], notes: [] }) {
 		diagnostics = { warnings: diagnostics, notes: diagnostics };
 	}
 	const files = new Map();
-	files.set('Root.plist', renderPlist(config.items, diagnostics));
+	files.set('Root.plist', renderPlist(config.items, diagnostics, config.source));
 	for (const screen of collectScreens(config.items)) {
-		files.set(`${screen.key}.plist`, renderPlist(screen.items, diagnostics));
+		files.set(`${screen.key}.plist`, renderPlist(screen.items, diagnostics, config.source));
 	}
 	return files;
 }
@@ -607,7 +696,9 @@ function arrayName(item, suffix) {
 function androidAttributes(pairs) {
 	const present = pairs.filter(([, value]) => value !== undefined);
 	// Keep the layout-only attribute last so the meaningful ones read first.
-	const ordered = present.filter(([name]) => name !== 'app:iconSpaceReserved').concat(present.filter(([name]) => name === 'app:iconSpaceReserved'));
+	const ordered = present
+		.filter(([name]) => name !== 'app:iconSpaceReserved')
+		.concat(present.filter(([name]) => name === 'app:iconSpaceReserved'));
 	return ordered.map(([name, value]) => `${name}="${escapeXml(value)}"`);
 }
 
@@ -616,7 +707,9 @@ function androidElement(tag, pairs, children, indent, override) {
 		tag = override.widget || tag;
 		pairs = applyOverrides(pairs, override, 'widget', null);
 	}
-	const attrs = androidAttributes(pairs).map((attribute) => `\n${indent}    ${attribute}`).join('');
+	const attrs = androidAttributes(pairs)
+		.map((attribute) => `\n${indent}    ${attribute}`)
+		.join('');
 	if (!children || !children.length) {
 		return `${indent}<${tag}${attrs} />`;
 	}
@@ -647,13 +740,7 @@ function androidPreference(item, indent) {
 				item.android,
 			);
 		case 'screen':
-			return androidElement(
-				'PreferenceScreen',
-				common,
-				androidChildren(item, indent),
-				indent,
-				item.android,
-			);
+			return androidElement('PreferenceScreen', common, androidChildren(item, indent), indent, item.android);
 		case 'text':
 			return androidElement(
 				'EditTextPreference',
@@ -668,7 +755,13 @@ function androidPreference(item, indent) {
 				item.android,
 			);
 		case 'toggle':
-			return androidElement('SwitchPreferenceCompat', [...common, ['android:defaultValue', String(item.default)]], null, indent, item.android);
+			return androidElement(
+				'SwitchPreferenceCompat',
+				[...common, ['android:defaultValue', String(item.default)]],
+				null,
+				indent,
+				item.android,
+			);
 		case 'list':
 			return androidElement(
 				'ListPreference',
@@ -739,11 +832,14 @@ function androidChildren(item, indent) {
 function renderAndroidXml(config) {
 	return [
 		'<?xml version="1.0" encoding="utf-8"?>',
-		`<!-- ${GENERATED_MARKER} from ${DEFAULT_CONFIG_FILE}. Do not edit; edit ${DEFAULT_CONFIG_FILE} instead. -->`,
+		`<!-- ${GENERATED_MARKER} from ${config.source || DEFAULT_CONFIG_FILE}. Do not edit; edit ${config.source || DEFAULT_CONFIG_FILE} instead. -->`,
 		'<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"',
 		'    xmlns:app="http://schemas.android.com/apk/res-auto">',
 		'',
-		config.items.map((item) => androidPreference(item, '    ')).filter((item) => item !== undefined).join('\n\n'),
+		config.items
+			.map((item) => androidPreference(item, '    '))
+			.filter((item) => item !== undefined)
+			.join('\n\n'),
 		'</PreferenceScreen>',
 		'',
 	].join('\n');
@@ -765,9 +861,20 @@ function renderAndroidArrays(config) {
 		return undefined;
 	}
 	const body = arrays
-		.map(([name, values]) => `    <string-array name="${name}">\n${values.map((value) => `        <item>${escapeXml(value)}</item>`).join('\n')}\n    </string-array>`)
+		.map(
+			([name, values]) =>
+				`    <string-array name="${name}">\n${values.map((value) => `        <item>${escapeXml(value)}</item>`).join('\n')}\n    </string-array>`,
+		)
 		.join('\n');
-	return ['<?xml version="1.0" encoding="utf-8"?>', `<!-- ${GENERATED_MARKER} from ${DEFAULT_CONFIG_FILE}. Do not edit; edit ${DEFAULT_CONFIG_FILE} instead. -->`, '<resources>', body, '</resources>', ''].join('\n');
+	const source = config.source || DEFAULT_CONFIG_FILE;
+	return [
+		'<?xml version="1.0" encoding="utf-8"?>',
+		`<!-- ${GENERATED_MARKER} from ${source}. Do not edit; edit ${source} instead. -->`,
+		'<resources>',
+		body,
+		'</resources>',
+		'',
+	].join('\n');
 }
 
 function renderAndroid(config) {
@@ -825,7 +932,10 @@ function renderTypeScript(config) {
 		'};',
 		'',
 		`/** One typed instance for the whole app, backed by the store the OS settings UI edits. */`,
-		`export const ${exportName} = new Preferences<${interfaceName}>({ defaults: ${exportName}Defaults, integers: [${stored.filter((item) => item.type === 'slider').map((item) => tsString(item.key)).join(', ')}] });`,
+		`export const ${exportName} = new Preferences<${interfaceName}>({ defaults: ${exportName}Defaults, integers: [${stored
+			.filter((item) => item.type === 'slider')
+			.map((item) => tsString(item.key))
+			.join(', ')}] });`,
 		'',
 	];
 	return lines.join('\n');
@@ -906,7 +1016,9 @@ function pruneStalePlists(bundleDir, keep, result) {
  */
 function generate(config, options) {
 	const projectDir = path.resolve(options.projectDir || process.cwd());
-	const appResourcesDir = options.appResourcesDir ? path.resolve(options.appResourcesDir) : path.join(projectDir, 'App_Resources');
+	const appResourcesDir = options.appResourcesDir
+		? path.resolve(options.appResourcesDir)
+		: path.join(projectDir, 'App_Resources');
 	const platforms = options.platforms || ['ios', 'android'];
 	const warnings = [];
 	const notes = [];
@@ -955,13 +1067,27 @@ function generate(config, options) {
 		writeIfChanged(file, content, result, options.force);
 	}
 	if (iosDir) {
-		pruneStalePlists(iosDir, new Set(Array.from(outputs.keys()).filter((file) => path.dirname(file) === iosDir).map((file) => path.basename(file))), result);
+		pruneStalePlists(
+			iosDir,
+			new Set(
+				Array.from(outputs.keys())
+					.filter((file) => path.dirname(file) === iosDir)
+					.map((file) => path.basename(file)),
+			),
+			result,
+		);
 	}
 	return result;
 }
 
+const { DEFINITION_FILES, loadDefinition, findDefinition, resolveAppDir } = require('./load-definition.cjs');
+
 module.exports = {
 	DEFAULT_CONFIG_FILE,
+	DEFINITION_FILES,
+	loadDefinition,
+	findDefinition,
+	resolveAppDir,
 	DEFAULT_OUTPUT,
 	GENERATED_MARKER,
 	PreferencesConfigError,

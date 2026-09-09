@@ -1,6 +1,6 @@
 # nativescript-preferences
 
-**App settings for NativeScript, declared once.** Describe them in a JSON file; get the iOS Settings screen, the Android preference screen, and a typed TypeScript API, all generated and all reading the same native store.
+**App settings for NativeScript, declared once.** Describe them in one TypeScript file; get the iOS Settings screen, the Android preference screen, and a typed API, all from the same definition and all reading the same native store.
 
 ```ts
 settings.get('theme');           // 'system' | 'light' | 'dark', never undefined
@@ -10,13 +10,13 @@ await settings.openSettings();   // the OS draws the screen
 ```
 
 - **No platform code.** One API on both OSes. No `if (isIOS)`, no plist, no XML written by hand.
-- **Typed for real.** Keys, value types and option literals come from the JSON. Every key has a default, so reads are never `undefined`.
+- **Typed for real.** Keys, value types and option literals are inferred from the definition. A default that is not one of its options, or a misspelled property, is a compile error. Every key has a default, so reads are never `undefined`.
 - **Live everywhere.** Change a value in the OS settings, in your code, or through a two-way binding, and everything else updates.
 - **Native UI for free.** iOS gets a page in the Settings app, Android gets an AndroidX `PreferenceScreen`. Or bind your own screen to the same instance.
 
-## One JSON file, both platforms
+## One definition, both platforms
 
-The demo app's [`preferences.json`](demo/preferences.json) produces every screen below. Nothing here is hand-written per platform.
+The demo app's [`app.preferences.ts`](demo/app/app.preferences.ts) produces every screen below. Nothing here is hand-written per platform.
 
 |  | iOS — the Settings app | Android — an AndroidX `PreferenceScreen` |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ The demo app's [`preferences.json`](demo/preferences.json) produces every screen
 | **Nested screen** | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-settings-advanced.png" width="250" alt="iOS Advanced screen" /> | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-advanced.png" width="250" alt="Android Advanced screen" /> |
 | **Two levels deep** | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/ios-settings-diagnostics.png" width="250" alt="iOS Diagnostics screen" /> | <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-diagnostics.png" width="250" alt="Android Diagnostics screen" /> |
 
-Same JSON, native idioms on each side: the `list` for Theme is an `ios.widget` radio group on the left and a `DropDownPreference` with an icon on the right, and the `multilist` that iOS has no control for is hidden there and a `MultiSelectListPreference` on Android.
+Same definition, native idioms on each side: the `list` for Theme is an `ios.widget` radio group on the left and a `DropDownPreference` with an icon on the right, and the `multilist` that iOS has no control for is hidden there and a `MultiSelectListPreference` on Android.
 
 <img src="https://raw.githubusercontent.com/sitefinitysteve/nativescript-preferences/master/images/android-settings-multiselect.png" width="250" alt="Android multi-select dialog" />
 
@@ -39,58 +39,50 @@ ns plugin add nativescript-preferences
 npx ns-preferences init
 ```
 
-`init` creates `preferences.json`, adds a build hook to `nativescript.config.ts`, and generates once. Describe your settings:
+`init` creates `app/app.preferences.ts`, adds a build hook to `nativescript.config.ts`, and generates once. Describe your settings:
 
-```json
-{
-  "$schema": "node_modules/nativescript-preferences/preferences.schema.json",
-  "output": { "typescript": "app/settings.generated.ts" },
-  "items": [
+```ts
+// app/app.preferences.ts
+import { definePreferences } from 'nativescript-preferences';
+
+export default definePreferences({
+  items: [
     {
-      "type": "group",
-      "title": "General",
-      "items": [
+      type: 'group',
+      title: 'General',
+      items: [
+        { key: 'enabled', type: 'toggle', title: 'Enabled', default: true },
         {
-          "key": "enabled",
-          "type": "toggle",
-          "title": "Enabled",
-          "default": true
+          key: 'theme',
+          type: 'list',
+          title: 'Theme',
+          default: 'system',
+          options: [
+            { value: 'system', title: 'Follow system' },
+            { value: 'light', title: 'Light' },
+            { value: 'dark', title: 'Dark' },
+          ],
         },
-        {
-          "key": "theme",
-          "type": "list",
-          "title": "Theme",
-          "default": "system",
-          "options": [
-            { "value": "system", "title": "Follow system" },
-            { "value": "light", "title": "Light" },
-            { "value": "dark", "title": "Dark" }
-          ]
-        },
-        {
-          "key": "volume",
-          "type": "slider",
-          "title": "Volume",
-          "default": 50,
-          "min": 0,
-          "max": 100
-        }
-      ]
-    }
-  ]
-}
+        { key: 'volume', type: 'slider', title: 'Volume', default: 50, min: 0, max: 100 },
+      ],
+    },
+  ],
+});
 ```
 
 Use them anywhere:
 
 ```ts
-import { settings } from './settings.generated';
+import settings from './app.preferences';
 
 settings.get('volume');                          // number
+settings.get('theme');                           // 'system' | 'light' | 'dark'
 settings.set('enabled', false);                  // a string here is a compile error
 settings.set('theme', null);                     // back to the default
 const stop = settings.onChange('theme', (theme) => applyTheme(theme));
 ```
+
+The file is both the schema and the runtime instance: `definePreferences` infers the keys and value types from the literal (no `as const` needed) and returns the typed `Preferences` for them. The build hook evaluates the same file under Node to write the native screens, so keep it self-contained: import only `nativescript-preferences` and relative `.ts` helpers there, nothing from the app or `@nativescript/*`.
 
 Or bind a page to it. The instance is an `Observable`, so bindings work in both directions:
 
@@ -103,7 +95,7 @@ page.bindingContext = settings;
 <Slider value="{{ volume }}" minValue="0" maxValue="100" />
 ```
 
-Every `ns run`, `ns build` and `ns prepare` regenerates the platform files, so the OS screen, the types and the defaults can't drift. Requires `@nativescript/core` 9. No native code, no manifest or `Info.plist` changes.
+Every `ns run`, `ns build` and `ns prepare` regenerates the platform files, so the OS screen, the types and the defaults can't drift. Requires `@nativescript/core` 9 and TypeScript 5.3 or newer (the typings also compile under 7). To read the definition at build time the hook uses the project's `typescript` when it has the compiler API (5.3 to 6.x), else the NativeScript CLI's own copy, so a TypeScript 7 project still builds. No native code, no manifest or `Info.plist` changes.
 
 ## What gets generated
 
@@ -111,7 +103,8 @@ Every `ns run`, `ns build` and `ns prepare` regenerates the platform files, so t
 | --- | --- |
 | iOS Settings.bundle, one plist per screen | `App_Resources/iOS/Settings.bundle/` |
 | AndroidX preference screen and its string arrays | `App_Resources/Android/src/main/res/xml/preferences.xml`, `values/preferences_arrays.xml` |
-| Interface, defaults and the `settings` instance | `output.typescript` |
+
+The definition file is the typed module, so nothing else is generated for it. (A `preferences.json` project also gets `output.typescript`; see [Still on preferences.json](#still-on-preferencesjson).)
 
 Only changed files are written. Generated files carry a "Do not edit" header; files without it are never overwritten. `npx ns-preferences generate` runs it by hand, `npx ns-preferences check` fails CI when output is stale.
 
@@ -170,10 +163,14 @@ Two iOS layout quirks are handled for you: a `PSRadioGroupSpecifier` is always e
 ### Keeping control
 
 - **Hand-edit a file.** Remove its "Generated by nativescript-preferences" header and the generator leaves it alone. `generate --force` takes it back.
-- **Stop generating one output.** `"output": { "android": false }` and write that file yourself.
+- **Stop generating one output.** `output: { android: false }` and write that file yourself.
 - **Skip the hook.** `NS_PREFERENCES_SKIP=1 ns run ios` for one build, or remove the `hooks` entry from `nativescript.config.ts` for good.
 
 Existing hand-written `Root.plist` or `preferences.xml` files are kept on the first run for the same reason.
+
+### Still on preferences.json
+
+`preferences.json` keeps working exactly as in 2.x: the same items, `"output": { "typescript": "app/settings.generated.ts" }`, and a generated module exporting the interface, the defaults and `settings`. `npx ns-preferences init --json` creates one, `preferences.schema.json` gives editor completion, and the hook picks up whichever of `app.preferences.ts` or `preferences.json` exists (both at once is an error, so two sources can never disagree). Moving over is mechanical: paste the `items` into `definePreferences({ items })`, drop `$schema` and `output.typescript`, delete the generated module, and import the definition instead.
 
 ## Without the generator
 
@@ -210,9 +207,13 @@ A typed schema needs a default per key; that is what makes `get()` never `undefi
 
 **Whole numbers.** A `slider` is an integer on both platforms, but an iOS `Slider` bound to it reports fractions. The generated module passes every slider key as `integers`, so writes are rounded; do the same when you construct `Preferences` yourself.
 
-**iOS caches `Settings.bundle` per install.** After editing `preferences.json`, a plain `ns run ios` can leave the old Settings screen in place. Delete the app from the simulator or device (or `xcrun simctl uninstall booted <bundle id>`) and run again.
+**iOS caches `Settings.bundle` per install.** After editing the definition, a plain `ns run ios` can leave the old Settings screen in place. Delete the app from the simulator or device (or `xcrun simctl uninstall booted <bundle id>`) and run again.
 
 ## API
+
+### `definePreferences(definition)`
+
+Returns `Preferences<InferPreferences<typeof definition>>`, with the definition reachable as `settings.definition`. The definition is `{ title?, output?, items }`; items are the [types above](#item-types) with `ios` / `android` overrides. Inferred per item: `text` is `string`, `toggle` is `boolean`, `slider` is `number`, `multilist` is `string[]`, and `list` is the union of its option values. `label`, `group` and `screen` store nothing and have no key in the schema. Checked at compile time: a `list` default must be one of its options (and is required), a `multilist` default must be a subset, a group cannot contain a group, and an unknown property such as `titel` is an error. Requires TypeScript 5.3 or newer; the same inference is available as `InferPreferences<D>` and the item types as `PreferenceItem`, `ListPreferenceItem` and so on.
 
 ### `Preferences<Schema>`
 
@@ -241,11 +242,11 @@ A typed schema needs a default per key; that is what makes `get()` never `undefi
 
 | Command | Description |
 | --- | --- |
-| `init` | Create `preferences.json`, register the build hook, generate once. |
+| `init` | Create `app/app.preferences.ts` (or `preferences.json` with `--json`), register the build hook, generate once. |
 | `generate` | Write all outputs. `--force` overwrites files without the generated header. |
 | `check` | Exit 1 when any generated file is stale. |
 
-Options: `--config`, `--project`, `--app-resources`, `--platform ios|android`. The hook lives at `hooks/before-prepare.cjs`.
+Options: `--config`, `--project`, `--app-dir`, `--app-resources`, `--platform ios|android`, `--json`. The definition is found in the app folder (`appPath` from `nativescript.config.ts`, else `src`, else `app`) or the project root. The hook lives at `hooks/before-prepare.cjs`.
 
 ## For AI assistants
 
