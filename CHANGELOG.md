@@ -6,7 +6,7 @@ Settings are now declared in TypeScript. `app/app.preferences.ts` exports `defin
 
 **Breaking**
 
-- Requires TypeScript 5.3 or newer (the typings use `const` type parameters; verified through 7.0). Projects on `preferences.json` are affected too, since the typings are shared. Reading the definition at build time needs the TypeScript compiler API, which 7.x dropped: the hook uses the project's 5.3 to 6.x `typescript` when present, else the NativeScript CLI's own copy, else explains what to install.
+- Requires TypeScript 6, the version NativeScript 9 ships with; the typings use `const` type parameters, so the floor is 5.3, and 7.0 is verified too. Projects on `preferences.json` are affected, since the typings are shared. Reading the definition at build time needs the TypeScript compiler API, which 7.x dropped: the hook uses the project's `typescript` when it has it, else the NativeScript CLI's own copy, else explains what to install.
 - `npx ns-preferences init` creates `app/app.preferences.ts`. Pass `--json` for the previous behaviour; `--typescript <file>` now only applies with `--json`.
 
 **Added**

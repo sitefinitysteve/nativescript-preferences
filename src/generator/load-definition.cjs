@@ -48,11 +48,11 @@ function findTypescript(projectDir, searchPaths) {
 	}
 	if (seen) {
 		throw new Error(
-			`reading app.preferences.ts needs the TypeScript compiler API, which typescript ${seen} no longer includes. Install typescript 5.3 to 6.x as a devDependency (the version the NativeScript 9 template uses).`,
+			`reading app.preferences.ts needs the TypeScript compiler API, which typescript ${seen} no longer includes. Install typescript 6 as a devDependency, the version the NativeScript 9 template uses.`,
 		);
 	}
 	throw new Error(
-		'reading app.preferences.ts needs the "typescript" package (5.3 to 6.x). Add it as a devDependency; every NativeScript app that builds already has it.',
+		'reading app.preferences.ts needs the "typescript" package (6, as in the NativeScript 9 template). Add it as a devDependency; every NativeScript app that builds already has it.',
 	);
 }
 

@@ -1,6 +1,6 @@
 # nativescript-preferences
 
-> Native app settings for NativeScript 9 (iOS + Android). Describe settings once in `app/app.preferences.ts` with `definePreferences({ items })`; keys and value types are inferred from that literal, and the same file is the runtime instance. The build hook generates the iOS `Settings.bundle` and the Android `PreferenceScreen` XML from it. One `Preferences` class reads and writes `NSUserDefaults` / `SharedPreferences`, raises change events, works as a two-way `bindingContext`, and opens the OS settings UI. Requires TypeScript 5.3+.
+> Native app settings for NativeScript 9 (iOS + Android). Describe settings once in `app/app.preferences.ts` with `definePreferences({ items })`; keys and value types are inferred from that literal, and the same file is the runtime instance. The build hook generates the iOS `Settings.bundle` and the Android `PreferenceScreen` XML from it. One `Preferences` class reads and writes `NSUserDefaults` / `SharedPreferences`, raises change events, works as a two-way `bindingContext`, and opens the OS settings UI. Requires TypeScript 6 (the NativeScript 9 version; 5.3 and 7.0 verified).
 
 ## Setup
 
@@ -120,4 +120,4 @@ A typed schema requires a default for every key. Write `Settings.bundle/Root.pli
 
 - iOS caches `Settings.bundle` per install: after changing the definition, uninstall the app from the simulator/device before `ns run ios` to see the new screen.
 - `NS_PREFERENCES_SKIP=1` disables the hook for one build.
-- Requires `@nativescript/core` ^9.0.0 and TypeScript 5.3+ (typings verified through 7.0). Reading `app.preferences.ts` at build time uses the project's `typescript` if it has the compiler API (5.3 to 6.x), else the NativeScript CLI's own copy; TypeScript 7 alone cannot transpile it. No native code, no manifest or Info.plist edits.
+- Requires `@nativescript/core` ^9.0.0 and TypeScript 6, the version NativeScript 9 ships with (5.3 and 7.0 verified). Reading `app.preferences.ts` at build time uses the project's `typescript` if it has the compiler API, else the NativeScript CLI's own copy; TypeScript 7 alone cannot transpile it. No native code, no manifest or Info.plist edits.

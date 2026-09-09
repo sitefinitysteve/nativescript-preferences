@@ -152,7 +152,7 @@ test('a project on TypeScript 7 (no compiler API) gets a clear message, another 
 				projectDir: seven,
 				typescriptPaths: [seven],
 			}),
-		/typescript 7\.0\.2 no longer includes\. Install typescript 5\.3 to 6\.x/,
+		/typescript 7\.0\.2 no longer includes\. Install typescript 6 as a devDependency/,
 	);
 	assert.throws(
 		() =>
@@ -160,7 +160,7 @@ test('a project on TypeScript 7 (no compiler API) gets a clear message, another 
 				projectDir: seven,
 				typescriptPaths: [os.tmpdir()],
 			}),
-		/needs the "typescript" package \(5\.3 to 6\.x\)/,
+		/needs the "typescript" package \(6, as in the NativeScript 9 template\)/,
 	);
 });
 

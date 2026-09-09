@@ -2,7 +2,7 @@
  * The shape `definePreferences()` accepts, and the types it infers from it.
  *
  * Everything here is `readonly` so a definition written inline keeps its literal types under the
- * `const` type parameter without `as const`. Requires TypeScript 5.3 or newer.
+ * `const` type parameter without `as const`. Requires TypeScript 6 (NativeScript 9's version; 5.3 is the floor).
  */
 
 /** A `list` / `multilist` option: a value that doubles as its title, or `{ value, title }`. */

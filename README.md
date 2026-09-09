@@ -95,7 +95,7 @@ page.bindingContext = settings;
 <Slider value="{{ volume }}" minValue="0" maxValue="100" />
 ```
 
-Every `ns run`, `ns build` and `ns prepare` regenerates the platform files, so the OS screen, the types and the defaults can't drift. Requires `@nativescript/core` 9 and TypeScript 5.3 or newer (the typings also compile under 7). To read the definition at build time the hook uses the project's `typescript` when it has the compiler API (5.3 to 6.x), else the NativeScript CLI's own copy, so a TypeScript 7 project still builds. No native code, no manifest or `Info.plist` changes.
+Every `ns run`, `ns build` and `ns prepare` regenerates the platform files, so the OS screen, the types and the defaults can't drift. Requires `@nativescript/core` 9 and TypeScript 6, the version NativeScript 9 ships with (5.3 and 7.0 are verified too). To read the definition at build time the hook uses the project's `typescript` when it has the compiler API, else the NativeScript CLI's own copy, so a TypeScript 7 project still builds. No native code, no manifest or `Info.plist` changes.
 
 ## What gets generated
 
@@ -213,7 +213,7 @@ A typed schema needs a default per key; that is what makes `get()` never `undefi
 
 ### `definePreferences(definition)`
 
-Returns `Preferences<InferPreferences<typeof definition>>`, with the definition reachable as `settings.definition`. The definition is `{ title?, output?, items }`; items are the [types above](#item-types) with `ios` / `android` overrides. Inferred per item: `text` is `string`, `toggle` is `boolean`, `slider` is `number`, `multilist` is `string[]`, and `list` is the union of its option values. `label`, `group` and `screen` store nothing and have no key in the schema. Checked at compile time: a `list` default must be one of its options (and is required), a `multilist` default must be a subset, a group cannot contain a group, and an unknown property such as `titel` is an error. Requires TypeScript 5.3 or newer; the same inference is available as `InferPreferences<D>` and the item types as `PreferenceItem`, `ListPreferenceItem` and so on.
+Returns `Preferences<InferPreferences<typeof definition>>`, with the definition reachable as `settings.definition`. The definition is `{ title?, output?, items }`; items are the [types above](#item-types) with `ios` / `android` overrides. Inferred per item: `text` is `string`, `toggle` is `boolean`, `slider` is `number`, `multilist` is `string[]`, and `list` is the union of its option values. `label`, `group` and `screen` store nothing and have no key in the schema. Checked at compile time: a `list` default must be one of its options (and is required), a `multilist` default must be a subset, a group cannot contain a group, and an unknown property such as `titel` is an error. Requires TypeScript 6 (5.3 and 7.0 verified); the same inference is available as `InferPreferences<D>` and the item types as `PreferenceItem`, `ListPreferenceItem` and so on.
 
 ### `Preferences<Schema>`
 

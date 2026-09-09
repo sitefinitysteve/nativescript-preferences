@@ -232,7 +232,7 @@ export declare class Preferences<T extends PreferenceSchemaOf<T> = PreferenceSch
  * options, or a misspelled property, is a compile error. The build hook evaluates the same file
  * under Node to generate `Settings.bundle` and `preferences.xml`, so keep it self-contained:
  * import only this package and relative `.ts` helpers, nothing from the app or `@nativescript/*`.
- * Requires TypeScript 5.3 or newer.
+ * Requires TypeScript 6, the version NativeScript 9 ships with (5.3 is the floor).
  */
 export declare function definePreferences<const D extends PreferencesDefinition>(
 	definition: D & ValidatePreferencesDefinition<D>,
